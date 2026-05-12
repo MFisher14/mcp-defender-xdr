@@ -3,6 +3,7 @@
 [![CI](https://github.com/MFisher14/mcp-defender-xdr/actions/workflows/ci.yml/badge.svg)](https://github.com/MFisher14/mcp-defender-xdr/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![GitHub Issues](https://img.shields.io/github/issues/MFisher14/mcp-defender-xdr.svg)](https://github.com/MFisher14/mcp-defender-xdr/issues)
 
 An [MCP](https://modelcontextprotocol.io/) server that exposes Microsoft
 Defender XDR — Advanced Hunting (KQL), incidents, and alerts — as tools
@@ -102,6 +103,15 @@ Set these environment variables (or a `.env` file based on
 The server validates that the PFX file exists at startup and fails fast
 with exit code 2 if any required variable is missing or the file is not
 readable.
+
+By default, the server targets the Microsoft Graph Security API at
+`securitycenter.microsoft.com`. If your organization's Defender
+deployment uses the legacy Defender for Endpoint REST API, override
+with:
+
+```bash
+export DEFENDER_API_BASE=https://api.securitycenter.microsoft.com
+```
 
 ### Multi tenant (production)
 
@@ -294,6 +304,30 @@ For the full analysis, see [`THREAT_MODEL.md`](./THREAT_MODEL.md).
 
 ---
 
+## Scope & Design Philosophy
+
+`mcp-defender-xdr` is purpose-built for **detection** and
+**investigation**, not response. The v0.1.x surface intentionally
+includes:
+
+- Querying incidents and alerts
+- Running Advanced Hunting (KQL) queries
+- Fetching threat intelligence (planned for v0.3 — see
+  [Issues](https://github.com/MFisher14/mcp-defender-xdr/issues))
+
+**Out of scope** for v0.1.x and the foreseeable roadmap:
+
+- Device isolation
+- File or process remediation
+- Response playbooks or automation
+
+These belong in a separate `mcp-defender-actions` server with
+`ThreatHunting.ReadWrite.All` scope and a stricter authorization model.
+Keeping the read-only and write-capable surfaces in separate processes
+means a compromise of the LLM-facing server cannot cause state changes.
+
+---
+
 ## Development
 
 ```bash
@@ -309,15 +343,5 @@ CI runs on every push and PR to `main` against Python 3.11 and 3.12.
 
 ## Roadmap
 
-- **v0.3: More tools.** `get_device_timeline`, `investigate_user`,
-  `query_threat_intelligence`.
-- **v0.3: Per-tenant rate-limit / quota enforcement.** Bound the cost
-  of a single tenant during fan-out so a noisy one doesn't degrade
-  hunts against quieter ones.
-- **v0.4: Microsoft Sentinel integration.** Run Sentinel KQL via
-  `loganalytics.io` and surface saved hunting queries as tools.
-- **v0.4: Secret-store credential providers.** Azure Key Vault / AWS
-  Secrets Manager providers that implement `CredentialProvider`, so
-  tenant config lives in the secret store instead of on disk.
-- **v0.5: HTTP/SSE transport.** Optional remote-server mode behind
-  short-lived bearer tokens.
+See [GitHub Milestones](https://github.com/MFisher14/mcp-defender-xdr/milestones)
+for the current scope of v0.2, v0.3, and future releases.
