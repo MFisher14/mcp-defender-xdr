@@ -90,7 +90,7 @@ pin the package by hash and review `msal`, `httpx`, `pydantic`, and
 The server has no shell-out, no `subprocess`, no `eval`, and no
 dynamic-import path. KQL is the only caller-supplied language; it is
 executed remotely by Defender against a read-only scope
-(`ThreatHunting.Read.All`), and the pre-filter in `validation.py`
+(`AdvancedQuery.Read.All`), and the pre-filter in `validation.py`
 rejects destructive verbs at the boundary as defense in depth. The
 HTTP surface is constrained to the three named Defender endpoints
 listed under MCP02, so a successful injection would have no local

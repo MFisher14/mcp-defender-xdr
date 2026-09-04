@@ -470,8 +470,10 @@ includes:
 - File or process remediation
 - Response playbooks or automation
 
-These belong in a separate `mcp-defender-actions` server with
-`ThreatHunting.ReadWrite.All` scope and a stricter authorization model.
+These belong in a separate `mcp-defender-actions` server holding the
+WindowsDefenderATP response permissions they require (`Machine.Isolate`,
+`Machine.StopAndQuarantine`, and similar) under a stricter authorization
+model.
 Keeping the read-only and write-capable surfaces in separate processes
 means a compromise of the LLM-facing server cannot cause state changes.
 

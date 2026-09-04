@@ -60,8 +60,9 @@ pytest --cov --cov-fail-under=80
 
 This server is intentionally read-only. We will **not** merge:
 
-- Tools that request write-scope permissions
-  (e.g. `ThreatHunting.ReadWrite.All`).
+- Tools that request write-scope permissions (e.g. `Alert.ReadWrite.All`,
+  `Incident.ReadWrite.All`, or any `Machine.*` response permission such as
+  `Machine.Isolate`).
 - Device isolation, file remediation, or other response actions. These
   belong in a separate companion server with a stricter authorization
   model — see the README's *Scope & Design Philosophy*.
