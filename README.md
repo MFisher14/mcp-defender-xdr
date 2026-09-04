@@ -17,6 +17,18 @@ and treats every input and every upstream response as untrusted.
 > **v0.1 status:** Certificate-based auth (PFX), multi-tenant via JSON
 > config, fan-out KQL hunts via `tenant: "*"`.
 
+### Not the same project as `mcp-defender`
+
+A separate MCP server named [`mcp-defender`](https://pypi.org/project/mcp-defender/),
+by a different author, has been published on PyPI since January 2026 and
+also exposes Defender Advanced Hunting. This is an unrelated codebase —
+not a fork, no shared lineage — with different design choices: it
+authenticates with X.509 certificates instead of client secrets, it is
+multi-tenant from the ground up with per-tenant token isolation and
+bounded fan-out across tenants, and it ships a published threat model in
+[`THREAT_MODEL.md`](./THREAT_MODEL.md). If you are choosing between them,
+compare on those axes and pick whichever suits your environment.
+
 ---
 
 ## Prerequisites
@@ -75,26 +87,64 @@ and treats every input and every upstream response as untrusted.
 
 ## Installation
 
-### With `uvx`
+> **This package is not published to PyPI yet.** Install from source — it
+> is the only path that works today.
+
+### From source
 
 ```bash
+# 1. Clone.
+git clone https://github.com/MFisher14/mcp-defender-xdr.git
+cd mcp-defender-xdr
+
+# 2. Create and activate a virtualenv.
+#    `uv venv` is recommended; `python -m venv .venv` works just as well.
+uv venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# 3. Install the package (editable) plus the dev/test tooling.
+uv pip install -e ".[dev]"
+
+# 4. Confirm the install.
+python -c "import mcp_defender_xdr; print(mcp_defender_xdr.__version__)"
+command -v mcp-defender-xdr
+```
+
+Step 4 should print the current version and the path to the console
+script. That script speaks MCP over stdio and is meant to be launched by an
+MCP client rather than run by hand. Running it directly with no
+credentials configured exits with status `2` and names the missing
+environment variables — that is expected, not a failed install:
+
+```console
+$ mcp-defender-xdr
+mcp-defender-xdr: Missing required Azure credential environment variables:
+AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CERT_PATH. See .env.example for setup.
+```
+
+Continue with [Configuration](#configuration) to supply those, then wire the
+absolute path to the console script into your MCP client — see
+[Claude Desktop / Claude Code integration](#claude-desktop--claude-code-integration).
+
+To run the test suite and the linters, see [Development](#development).
+
+### From PyPI — not yet available (planned for v0.2)
+
+The commands below are the intended v0.2 install path. **They do not work
+today** and will fail with "No solution found" / "No matching distribution
+found" until the first PyPI release. They are recorded here so the
+published interface is settled ahead of time; track the release in
+[Milestones](https://github.com/MFisher14/mcp-defender-xdr/milestones).
+
+```bash
+# Planned — does not work yet.
 uvx --from mcp-defender-xdr mcp-defender-xdr
 ```
 
-### With `pip`
-
 ```bash
+# Planned — does not work yet.
 pip install mcp-defender-xdr
 mcp-defender-xdr
-```
-
-### From source (development)
-
-```bash
-git clone https://github.com/MFisher14/mcp-defender-xdr.git
-cd mcp-defender-xdr
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
 ```
 
 ---
@@ -193,14 +243,20 @@ Two passphrase patterns are supported per tenant; pick **one**:
 Add to your MCP client's config (Claude Desktop:
 `claude_desktop_config.json`; Claude Code: `~/.claude.json`).
 
+Until the package is on PyPI, point `command` at the absolute path of the
+`mcp-defender-xdr` console script inside the virtualenv you created in
+[Installation](#installation) — `command -v mcp-defender-xdr` prints it
+while that virtualenv is active. MCP clients launch the server without your
+shell's `PATH`, so a bare `"mcp-defender-xdr"` will not resolve.
+
 ### Single tenant
 
 ```json
 {
   "mcpServers": {
     "defender-xdr": {
-      "command": "uvx",
-      "args": ["--from", "mcp-defender-xdr", "mcp-defender-xdr"],
+      "command": "/absolute/path/to/mcp-defender-xdr/.venv/bin/mcp-defender-xdr",
+      "args": [],
       "env": {
         "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
         "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000000",
@@ -217,8 +273,8 @@ Add to your MCP client's config (Claude Desktop:
 {
   "mcpServers": {
     "defender-xdr": {
-      "command": "uvx",
-      "args": ["--from", "mcp-defender-xdr", "mcp-defender-xdr"],
+      "command": "/absolute/path/to/mcp-defender-xdr/.venv/bin/mcp-defender-xdr",
+      "args": [],
       "env": {
         "MCP_DEFENDER_XDR_TENANTS_FILE": "/etc/mcp-defender-xdr/tenants.json",
         "CONTOSO_CERT_PASS": "..."
