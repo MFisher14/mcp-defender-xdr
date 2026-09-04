@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ConfigError` for startup misconfiguration and `audit_warning` for
   WARNING-level audit records.
 
+### Fixed
+
+- Corrected the `mcp` dependency range to `>=1.13.0,<2`. The previous
+  `>=1.0.0` was wrong at both ends: `Server(version=...)` does not exist in
+  1.0.0, so the declared floor was never installable, and the missing upper
+  bound let `mcp` 2.x resolve by default. 2.x replaced the decorator
+  registration model with constructor callbacks and renamed model attributes
+  to snake_case, which broke the build on a clean install.
+
 ## [0.1.1] - 2026-09-04
 
 ### Added
