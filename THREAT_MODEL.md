@@ -62,9 +62,11 @@ upstream rate limit.
 
 **Mitigations.**
 
-1. **Primary — read-only scope.** The App Registration only has
-   `ThreatHunting.Read.All`. Advanced Hunting is a read endpoint; KQL
-   control verbs that mutate state are rejected by Defender itself.
+1. **Primary — read-only scope.** The App Registration holds only read
+   permissions on the WindowsDefenderATP resource; the one covering this
+   endpoint is `AdvancedQuery.Read.All`. Advanced Hunting is a read
+   endpoint; KQL control verbs that mutate state are rejected by Defender
+   itself.
 2. **Length cap.** Queries over 10,000 characters are rejected before
    HTTP. See `MAX_KQL_LENGTH` in `validation.py`.
 3. **Forbidden substrings.** Defense-in-depth pre-filter that rejects

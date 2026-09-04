@@ -94,6 +94,7 @@ def token_manager(
 
 
 def _build_context_factory(token_mgr: TokenManager):
+    from mcp_defender_xdr.defender_client import DefenderClient
     from mcp_defender_xdr.tool_context import ToolContext
 
     sleeps: list[float] = []
@@ -112,7 +113,10 @@ def _build_context_factory(token_mgr: TokenManager):
 
         def patched_client_for(tenant_key: str):
             client = original(tenant_key)
-            client._sleep = _sleep
+            # client_for is typed to the DefenderApi protocol; only the live
+            # client has a backoff sleep to stub out.
+            if isinstance(client, DefenderClient):
+                client._sleep = _sleep
             return client
 
         ctx.client_for = patched_client_for  # type: ignore[method-assign]

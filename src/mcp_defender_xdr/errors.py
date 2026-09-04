@@ -37,6 +37,12 @@ class InvalidInputError(DefenderError):
     code = ErrorCode.INVALID_INPUT
 
 
+class ConfigError(DefenderError):
+    """Server misconfiguration detected at startup (env vars, fixture data)."""
+
+    code = ErrorCode.INVALID_INPUT
+
+
 class UpstreamError(DefenderError):
     code = ErrorCode.UPSTREAM_ERROR
 

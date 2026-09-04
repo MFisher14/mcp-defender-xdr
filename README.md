@@ -17,6 +17,71 @@ and treats every input and every upstream response as untrusted.
 > **v0.1 status:** Certificate-based auth (PFX), multi-tenant via JSON
 > config, fan-out KQL hunts via `tenant: "*"`.
 
+### Not the same project as `mcp-defender`
+
+A separate MCP server named [`mcp-defender`](https://pypi.org/project/mcp-defender/),
+by a different author, has been published on PyPI since January 2026 and
+also exposes Defender Advanced Hunting. This is an unrelated codebase —
+not a fork, no shared lineage — with different design choices: it
+authenticates with X.509 certificates instead of client secrets, it is
+multi-tenant from the ground up with per-tenant token isolation and
+bounded fan-out across tenants, and it ships a published threat model in
+[`THREAT_MODEL.md`](./THREAT_MODEL.md). If you are choosing between them,
+compare on those axes and pick whichever suits your environment.
+
+---
+
+## Quickstart (offline)
+
+**Evaluate this server with no Azure tenant, no App Registration, and no
+certificate.** Fixture mode swaps the HTTP and OAuth layer for recorded
+synthetic responses; validation, the per-tool transforms, multi-tenant
+fan-out, and the audit log all run for real on top of them.
+
+```bash
+git clone https://github.com/MFisher14/mcp-defender-xdr.git
+cd mcp-defender-xdr
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Boots with no other environment variables set.
+MCP_DEFENDER_XDR_FIXTURE_MODE=synthetic-fixtures-no-live-data mcp-defender-xdr
+```
+
+Then point your MCP client at it — no credentials in the config:
+
+```json
+{
+  "mcpServers": {
+    "defender-xdr-fixtures": {
+      "command": "/absolute/path/to/mcp-defender-xdr/.venv/bin/mcp-defender-xdr",
+      "args": [],
+      "env": {
+        "MCP_DEFENDER_XDR_FIXTURE_MODE": "synthetic-fixtures-no-live-data"
+      }
+    }
+  }
+}
+```
+
+Demo prompts covering all three tools, fan-out, and the error paths are in
+[`examples/prompts.md`](./examples/prompts.md); setup detail is in
+[`examples/README.md`](./examples/README.md).
+
+**Fixture output cannot be confused with live data.** Every result carries
+`"fixture_mode": true` and a synthetic-data `notice` in the payload the model
+reads; every tool call emits a WARNING-level
+`FIXTURE-MODE-ACTIVE-SYNTHETIC-DATA` audit record on stderr; and every
+hostname is invented under `example.com` with every IP drawn from the RFC 5737
+documentation ranges.
+
+**It also cannot be switched on by accident.**
+`MCP_DEFENDER_XDR_FIXTURE_MODE` must equal `synthetic-fixtures-no-live-data`
+exactly. Any other non-empty value — `1`, `true`, `yes` — exits 2 at startup
+rather than resolving to either mode, so a typo can neither serve fake data
+nor quietly reach a live tenant. Unset it to run live, and continue with
+Prerequisites below.
+
 ---
 
 ## Prerequisites
@@ -24,15 +89,30 @@ and treats every input and every upstream response as untrusted.
 1. An Azure tenant with Microsoft Defender for Endpoint / Defender XDR.
 2. An [Azure App Registration](https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app)
    per tenant, with the following **application** API permissions
-   (admin consent required):
+   (admin consent required).
 
-   | API                              | Permission                  | Why                          |
-   | -------------------------------- | --------------------------- | ---------------------------- |
-   | WindowsDefenderATP / Graph       | `ThreatHunting.Read.All`    | Run Advanced Hunting KQL     |
-   | WindowsDefenderATP / Graph       | `SecurityEvents.Read.All`   | Read alerts                  |
-   | WindowsDefenderATP / Graph       | `SecurityIncident.Read.All` | Read incidents               |
+   All three are granted on the **WindowsDefenderATP** resource (app ID
+   `fc780465-2017-40d4-a0c5-307022471b92`). In the Azure portal that is
+   "API permissions" → "Add a permission" → **APIs my organization uses**
+   → **WindowsDefenderATP** → **Application permissions** — *not*
+   Microsoft Graph. The server requests the token scope
+   `https://api.securitycenter.microsoft.com/.default`, which resolves to
+   exactly that resource and no other.
+
+   | Permission               | Why                      |
+   | ------------------------ | ------------------------ |
+   | `AdvancedQuery.Read.All` | Run Advanced Hunting KQL |
+   | `Alert.Read.All`         | Read alerts              |
+   | `Incident.Read.All`      | Read incidents           |
 
    All three permissions are **read-only**.
+
+   Microsoft Graph exposes similarly-named permissions
+   (`ThreatHunting.Read.All`, `SecurityEvents.Read.All`,
+   `SecurityIncident.Read.All`). Those belong to the Graph Security API and
+   grant **nothing** against the host this server calls; granting them
+   instead of the three above will leave every tool returning
+   `auth_failure`.
 
 3. A certificate per App Registration. Generate one with OpenSSL:
 
@@ -60,26 +140,64 @@ and treats every input and every upstream response as untrusted.
 
 ## Installation
 
-### With `uvx`
+> **This package is not published to PyPI yet.** Install from source — it
+> is the only path that works today.
+
+### From source
 
 ```bash
+# 1. Clone.
+git clone https://github.com/MFisher14/mcp-defender-xdr.git
+cd mcp-defender-xdr
+
+# 2. Create and activate a virtualenv.
+#    `uv venv` is recommended; `python -m venv .venv` works just as well.
+uv venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# 3. Install the package (editable) plus the dev/test tooling.
+uv pip install -e ".[dev]"
+
+# 4. Confirm the install.
+python -c "import mcp_defender_xdr; print(mcp_defender_xdr.__version__)"
+command -v mcp-defender-xdr
+```
+
+Step 4 should print the current version and the path to the console
+script. That script speaks MCP over stdio and is meant to be launched by an
+MCP client rather than run by hand. Running it directly with no
+credentials configured exits with status `2` and names the missing
+environment variables — that is expected, not a failed install:
+
+```console
+$ mcp-defender-xdr
+mcp-defender-xdr: Missing required Azure credential environment variables:
+AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CERT_PATH. See .env.example for setup.
+```
+
+Continue with [Configuration](#configuration) to supply those, then wire the
+absolute path to the console script into your MCP client — see
+[Claude Desktop / Claude Code integration](#claude-desktop--claude-code-integration).
+
+To run the test suite and the linters, see [Development](#development).
+
+### From PyPI — not yet available (planned for v0.2)
+
+The commands below are the intended v0.2 install path. **They do not work
+today** and will fail with "No solution found" / "No matching distribution
+found" until the first PyPI release. They are recorded here so the
+published interface is settled ahead of time; track the release in
+[Milestones](https://github.com/MFisher14/mcp-defender-xdr/milestones).
+
+```bash
+# Planned — does not work yet.
 uvx --from mcp-defender-xdr mcp-defender-xdr
 ```
 
-### With `pip`
-
 ```bash
+# Planned — does not work yet.
 pip install mcp-defender-xdr
 mcp-defender-xdr
-```
-
-### From source (development)
-
-```bash
-git clone https://github.com/MFisher14/mcp-defender-xdr.git
-cd mcp-defender-xdr
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
 ```
 
 ---
@@ -97,20 +215,43 @@ Set these environment variables (or a `.env` file based on
 | `AZURE_CLIENT_ID`                 | yes      | App Registration client ID.                                |
 | `AZURE_CERT_PATH`                 | yes      | Absolute path to the PFX (PKCS#12) bundle.                 |
 | `AZURE_CERT_PASSPHRASE`           | no       | Passphrase for the PFX. Omit if unencrypted.               |
-| `DEFENDER_API_BASE`               | no       | Override the API base URL.                                 |
+| `DEFENDER_API_BASE`               | no       | Override the API base URL (host only — see below).         |
 | `MCP_DEFENDER_XDR_LOG_LEVEL`      | no       | Audit log level. Default `INFO`.                           |
+| `MCP_DEFENDER_XDR_FIXTURE_MODE`   | no       | Offline fixture mode. See [Quickstart (offline)](#quickstart-offline). |
 
 The server validates that the PFX file exists at startup and fails fast
 with exit code 2 if any required variable is missing or the file is not
 readable.
 
-By default, the server targets the Microsoft Graph Security API at
-`securitycenter.microsoft.com`. If your organization's Defender
-deployment uses the legacy Defender for Endpoint REST API, override
-with:
+### Which API this server talks to
+
+The server targets the **Microsoft Defender for Endpoint REST API** at
+`https://api.securitycenter.microsoft.com` (`DEFAULT_DEFENDER_RESOURCE` in
+[`src/mcp_defender_xdr/auth.py`](./src/mcp_defender_xdr/auth.py)). All
+three tools call paths on that host:
+
+| Tool                     | Request                            |
+| ------------------------ | ---------------------------------- |
+| `query_advanced_hunting` | `POST /api/advancedqueries/run`    |
+| `get_incident`           | `GET /api/incidents/{incident_id}` |
+| `list_alerts`            | `GET /api/alerts`                  |
+
+This is **not** the Microsoft Graph Security API, which lives at
+`https://graph.microsoft.com/v1.0/security` and uses different paths,
+different response shapes, and different permission names. The server does
+not speak Graph today; pointing it at `graph.microsoft.com` will not work.
+
+`DEFENDER_API_BASE` overrides **only** the host portion of those requests.
+Use it to route through a recording proxy, an egress gateway, or a test
+double. It does *not* change the OAuth scope, which stays pinned to
+`https://api.securitycenter.microsoft.com/.default` and is not currently
+configurable — so sovereign clouds (GCC High, DoD, 21Vianet), which need a
+different host **and** a different token audience, are not reachable via
+this variable alone.
 
 ```bash
-export DEFENDER_API_BASE=https://api.securitycenter.microsoft.com
+# Example: route Defender API traffic through a local recording proxy.
+export DEFENDER_API_BASE=https://defender-proxy.internal.example.com
 ```
 
 ### Multi tenant (production)
@@ -156,14 +297,20 @@ Two passphrase patterns are supported per tenant; pick **one**:
 Add to your MCP client's config (Claude Desktop:
 `claude_desktop_config.json`; Claude Code: `~/.claude.json`).
 
+Until the package is on PyPI, point `command` at the absolute path of the
+`mcp-defender-xdr` console script inside the virtualenv you created in
+[Installation](#installation) — `command -v mcp-defender-xdr` prints it
+while that virtualenv is active. MCP clients launch the server without your
+shell's `PATH`, so a bare `"mcp-defender-xdr"` will not resolve.
+
 ### Single tenant
 
 ```json
 {
   "mcpServers": {
     "defender-xdr": {
-      "command": "uvx",
-      "args": ["--from", "mcp-defender-xdr", "mcp-defender-xdr"],
+      "command": "/absolute/path/to/mcp-defender-xdr/.venv/bin/mcp-defender-xdr",
+      "args": [],
       "env": {
         "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
         "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000000",
@@ -180,8 +327,8 @@ Add to your MCP client's config (Claude Desktop:
 {
   "mcpServers": {
     "defender-xdr": {
-      "command": "uvx",
-      "args": ["--from", "mcp-defender-xdr", "mcp-defender-xdr"],
+      "command": "/absolute/path/to/mcp-defender-xdr/.venv/bin/mcp-defender-xdr",
+      "args": [],
       "env": {
         "MCP_DEFENDER_XDR_TENANTS_FILE": "/etc/mcp-defender-xdr/tenants.json",
         "CONTOSO_CERT_PASS": "..."
@@ -263,10 +410,12 @@ Returns severity, status, classification, alerts, and impacted entities.
 
 ## Security design
 
-**OAuth scopes.** Only three application permissions are requested, all
-read-only: `ThreatHunting.Read.All`, `SecurityEvents.Read.All`,
-`SecurityIncident.Read.All`. No write or admin scopes. Even if KQL input
-validation is bypassed, the underlying Defender API rejects
+**OAuth scopes.** The server requests a single token scope,
+`https://api.securitycenter.microsoft.com/.default`, which resolves to the
+WindowsDefenderATP resource. Only three application permissions need to be
+consented on it, all read-only: `AdvancedQuery.Read.All`,
+`Alert.Read.All`, `Incident.Read.All`. No write or admin scopes. Even if
+KQL input validation is bypassed, the underlying Defender API rejects
 state-mutating queries.
 
 **Certificate-based auth.** Authentication uses an X.509 certificate
@@ -321,8 +470,10 @@ includes:
 - File or process remediation
 - Response playbooks or automation
 
-These belong in a separate `mcp-defender-actions` server with
-`ThreatHunting.ReadWrite.All` scope and a stricter authorization model.
+These belong in a separate `mcp-defender-actions` server holding the
+WindowsDefenderATP response permissions they require (`Machine.Isolate`,
+`Machine.StopAndQuarantine`, and similar) under a stricter authorization
+model.
 Keeping the read-only and write-capable surfaces in separate processes
 means a compromise of the LLM-facing server cannot cause state changes.
 
