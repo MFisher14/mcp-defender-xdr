@@ -24,15 +24,30 @@ and treats every input and every upstream response as untrusted.
 1. An Azure tenant with Microsoft Defender for Endpoint / Defender XDR.
 2. An [Azure App Registration](https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app)
    per tenant, with the following **application** API permissions
-   (admin consent required):
+   (admin consent required).
 
-   | API                              | Permission                  | Why                          |
-   | -------------------------------- | --------------------------- | ---------------------------- |
-   | WindowsDefenderATP / Graph       | `ThreatHunting.Read.All`    | Run Advanced Hunting KQL     |
-   | WindowsDefenderATP / Graph       | `SecurityEvents.Read.All`   | Read alerts                  |
-   | WindowsDefenderATP / Graph       | `SecurityIncident.Read.All` | Read incidents               |
+   All three are granted on the **WindowsDefenderATP** resource (app ID
+   `fc780465-2017-40d4-a0c5-307022471b92`). In the Azure portal that is
+   "API permissions" → "Add a permission" → **APIs my organization uses**
+   → **WindowsDefenderATP** → **Application permissions** — *not*
+   Microsoft Graph. The server requests the token scope
+   `https://api.securitycenter.microsoft.com/.default`, which resolves to
+   exactly that resource and no other.
+
+   | Permission               | Why                      |
+   | ------------------------ | ------------------------ |
+   | `AdvancedQuery.Read.All` | Run Advanced Hunting KQL |
+   | `Alert.Read.All`         | Read alerts              |
+   | `Incident.Read.All`      | Read incidents           |
 
    All three permissions are **read-only**.
+
+   Microsoft Graph exposes similarly-named permissions
+   (`ThreatHunting.Read.All`, `SecurityEvents.Read.All`,
+   `SecurityIncident.Read.All`). Those belong to the Graph Security API and
+   grant **nothing** against the host this server calls; granting them
+   instead of the three above will leave every tool returning
+   `auth_failure`.
 
 3. A certificate per App Registration. Generate one with OpenSSL:
 
@@ -97,20 +112,42 @@ Set these environment variables (or a `.env` file based on
 | `AZURE_CLIENT_ID`                 | yes      | App Registration client ID.                                |
 | `AZURE_CERT_PATH`                 | yes      | Absolute path to the PFX (PKCS#12) bundle.                 |
 | `AZURE_CERT_PASSPHRASE`           | no       | Passphrase for the PFX. Omit if unencrypted.               |
-| `DEFENDER_API_BASE`               | no       | Override the API base URL.                                 |
+| `DEFENDER_API_BASE`               | no       | Override the API base URL (host only — see below).         |
 | `MCP_DEFENDER_XDR_LOG_LEVEL`      | no       | Audit log level. Default `INFO`.                           |
 
 The server validates that the PFX file exists at startup and fails fast
 with exit code 2 if any required variable is missing or the file is not
 readable.
 
-By default, the server targets the Microsoft Graph Security API at
-`securitycenter.microsoft.com`. If your organization's Defender
-deployment uses the legacy Defender for Endpoint REST API, override
-with:
+### Which API this server talks to
+
+The server targets the **Microsoft Defender for Endpoint REST API** at
+`https://api.securitycenter.microsoft.com` (`DEFAULT_DEFENDER_RESOURCE` in
+[`src/mcp_defender_xdr/auth.py`](./src/mcp_defender_xdr/auth.py)). All
+three tools call paths on that host:
+
+| Tool                     | Request                            |
+| ------------------------ | ---------------------------------- |
+| `query_advanced_hunting` | `POST /api/advancedqueries/run`    |
+| `get_incident`           | `GET /api/incidents/{incident_id}` |
+| `list_alerts`            | `GET /api/alerts`                  |
+
+This is **not** the Microsoft Graph Security API, which lives at
+`https://graph.microsoft.com/v1.0/security` and uses different paths,
+different response shapes, and different permission names. The server does
+not speak Graph today; pointing it at `graph.microsoft.com` will not work.
+
+`DEFENDER_API_BASE` overrides **only** the host portion of those requests.
+Use it to route through a recording proxy, an egress gateway, or a test
+double. It does *not* change the OAuth scope, which stays pinned to
+`https://api.securitycenter.microsoft.com/.default` and is not currently
+configurable — so sovereign clouds (GCC High, DoD, 21Vianet), which need a
+different host **and** a different token audience, are not reachable via
+this variable alone.
 
 ```bash
-export DEFENDER_API_BASE=https://api.securitycenter.microsoft.com
+# Example: route Defender API traffic through a local recording proxy.
+export DEFENDER_API_BASE=https://defender-proxy.internal.example.com
 ```
 
 ### Multi tenant (production)
@@ -263,10 +300,12 @@ Returns severity, status, classification, alerts, and impacted entities.
 
 ## Security design
 
-**OAuth scopes.** Only three application permissions are requested, all
-read-only: `ThreatHunting.Read.All`, `SecurityEvents.Read.All`,
-`SecurityIncident.Read.All`. No write or admin scopes. Even if KQL input
-validation is bypassed, the underlying Defender API rejects
+**OAuth scopes.** The server requests a single token scope,
+`https://api.securitycenter.microsoft.com/.default`, which resolves to the
+WindowsDefenderATP resource. Only three application permissions need to be
+consented on it, all read-only: `AdvancedQuery.Read.All`,
+`Alert.Read.All`, `Incident.Read.All`. No write or admin scopes. Even if
+KQL input validation is bypassed, the underlying Defender API rejects
 state-mutating queries.
 
 **Certificate-based auth.** Authentication uses an X.509 certificate
