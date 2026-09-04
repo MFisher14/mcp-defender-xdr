@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..audit import audit_tool_call
-from ..defender_client import DefenderClient
+from ..defender_client import DefenderApi
 from ..tool_context import ToolContext
 from ..validation import IncidentInput, parse_input
 from ._runtime import dispatch, resolve_targets
@@ -50,7 +50,7 @@ async def run(ctx: ToolContext, raw_params: dict[str, Any]) -> dict[str, Any]:
     targets = resolve_targets(ctx, params.tenant)
     audit_params = {"incident_id": params.incident_id, "tenants": targets}
 
-    async def _call(client: DefenderClient) -> dict[str, Any]:
+    async def _call(client: DefenderApi) -> dict[str, Any]:
         response = await client.get(f"/api/incidents/{params.incident_id}")
         alerts = response.get("alerts", []) or []
         entities: list[dict[str, Any]] = []

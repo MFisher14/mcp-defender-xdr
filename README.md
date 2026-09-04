@@ -31,6 +31,59 @@ compare on those axes and pick whichever suits your environment.
 
 ---
 
+## Quickstart (offline)
+
+**Evaluate this server with no Azure tenant, no App Registration, and no
+certificate.** Fixture mode swaps the HTTP and OAuth layer for recorded
+synthetic responses; validation, the per-tool transforms, multi-tenant
+fan-out, and the audit log all run for real on top of them.
+
+```bash
+git clone https://github.com/MFisher14/mcp-defender-xdr.git
+cd mcp-defender-xdr
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Boots with no other environment variables set.
+MCP_DEFENDER_XDR_FIXTURE_MODE=synthetic-fixtures-no-live-data mcp-defender-xdr
+```
+
+Then point your MCP client at it — no credentials in the config:
+
+```json
+{
+  "mcpServers": {
+    "defender-xdr-fixtures": {
+      "command": "/absolute/path/to/mcp-defender-xdr/.venv/bin/mcp-defender-xdr",
+      "args": [],
+      "env": {
+        "MCP_DEFENDER_XDR_FIXTURE_MODE": "synthetic-fixtures-no-live-data"
+      }
+    }
+  }
+}
+```
+
+Demo prompts covering all three tools, fan-out, and the error paths are in
+[`examples/prompts.md`](./examples/prompts.md); setup detail is in
+[`examples/README.md`](./examples/README.md).
+
+**Fixture output cannot be confused with live data.** Every result carries
+`"fixture_mode": true` and a synthetic-data `notice` in the payload the model
+reads; every tool call emits a WARNING-level
+`FIXTURE-MODE-ACTIVE-SYNTHETIC-DATA` audit record on stderr; and every
+hostname is invented under `example.com` with every IP drawn from the RFC 5737
+documentation ranges.
+
+**It also cannot be switched on by accident.**
+`MCP_DEFENDER_XDR_FIXTURE_MODE` must equal `synthetic-fixtures-no-live-data`
+exactly. Any other non-empty value — `1`, `true`, `yes` — exits 2 at startup
+rather than resolving to either mode, so a typo can neither serve fake data
+nor quietly reach a live tenant. Unset it to run live, and continue with
+Prerequisites below.
+
+---
+
 ## Prerequisites
 
 1. An Azure tenant with Microsoft Defender for Endpoint / Defender XDR.
@@ -164,6 +217,7 @@ Set these environment variables (or a `.env` file based on
 | `AZURE_CERT_PASSPHRASE`           | no       | Passphrase for the PFX. Omit if unencrypted.               |
 | `DEFENDER_API_BASE`               | no       | Override the API base URL (host only — see below).         |
 | `MCP_DEFENDER_XDR_LOG_LEVEL`      | no       | Audit log level. Default `INFO`.                           |
+| `MCP_DEFENDER_XDR_FIXTURE_MODE`   | no       | Offline fixture mode. See [Quickstart (offline)](#quickstart-offline). |
 
 The server validates that the PFX file exists at startup and fails fast
 with exit code 2 if any required variable is missing or the file is not

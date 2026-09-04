@@ -51,6 +51,11 @@ Issues = "https://github.com/MFisher14/mcp-defender-xdr/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_defender_xdr"]
 
+# Offline fixture mode reads examples/fixtures directly from a source checkout.
+# Ship the same files inside the wheel so an installed package can serve them too.
+[tool.hatch.build.targets.wheel.force-include]
+"examples/fixtures" = "mcp_defender_xdr/fixture_data"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

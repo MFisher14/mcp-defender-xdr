@@ -6,13 +6,14 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from ..audit import audit, audit_error
-from ..defender_client import DefenderClient
+from ..audit import audit, audit_error, audit_warning
+from ..defender_client import DefenderApi
 from ..errors import DefenderError, ErrorCode, InvalidInputError
+from ..fixtures import FIXTURE_AUDIT_EVENT, SYNTHETIC_NOTICE, mark_result
 from ..tool_context import ToolContext
 from ..validation import FAN_OUT_TENANT
 
-TenantCall = Callable[[DefenderClient], Awaitable[dict[str, Any]]]
+TenantCall = Callable[[DefenderApi], Awaitable[dict[str, Any]]]
 
 
 def resolve_targets(ctx: ToolContext, tenant: str | None) -> list[str]:
@@ -35,9 +36,21 @@ async def dispatch(
     targets: list[str],
     call: TenantCall,
 ) -> dict[str, Any]:
+    if ctx.fixture_mode:
+        # Loud, WARNING-level, on every single tool call — never a startup-only
+        # banner that scrolls away before the calls a reviewer actually reads.
+        audit_warning(
+            FIXTURE_AUDIT_EVENT,
+            tool=tool_name,
+            fixture_mode=True,
+            tenants=targets,
+            notice=SYNTHETIC_NOTICE,
+        )
+
     if len(targets) == 1:
         client = ctx.client_for(targets[0])
-        return await call(client)
+        single = await call(client)
+        return mark_result(single) if ctx.fixture_mode else single
 
     semaphore = asyncio.Semaphore(ctx.max_fan_out)
 
@@ -80,8 +93,9 @@ async def dispatch(
             return {"tenant": tenant_key, "result": payload}
 
     results = await asyncio.gather(*(_one(t) for t in targets))
-    return {
+    envelope: dict[str, Any] = {
         "fan_out": True,
         "tenants": targets,
         "results": results,
     }
+    return mark_result(envelope) if ctx.fixture_mode else envelope

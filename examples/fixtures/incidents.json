@@ -1,0 +1,127 @@
+{
+  "_comment": "SYNTHETIC FIXTURE DATA. Not from a live Defender tenant. Keys are incident IDs; values are shaped like a raw GET /api/incidents/{id} response. Any ID not present here raises not_found, mirroring the live 404.",
+  "INC-4471": {
+    "incidentId": "INC-4471",
+    "incidentName": "Multi-stage incident involving Execution & Credential access on one endpoint",
+    "severity": "High",
+    "status": "Active",
+    "classification": "TruePositive",
+    "determination": "Malware",
+    "assignedTo": "soc.analyst.fixture@example.com",
+    "createdTime": "2026-08-31T02:15:11.0000000Z",
+    "lastUpdateTime": "2026-08-31T05:02:48.0000000Z",
+    "tags": ["fixture", "synthetic-data"],
+    "alerts": [
+      {
+        "alertId": "da-fixture-0001",
+        "title": "Suspicious PowerShell command line",
+        "description": "A PowerShell process was launched by an Office application with an encoded command. This is synthetic fixture data.",
+        "severity": "High",
+        "status": "New",
+        "category": "Execution",
+        "detectionSource": "WindowsDefenderAtp",
+        "serviceSource": "MicrosoftDefenderForEndpoint",
+        "firstActivity": "2026-08-31T02:14:07.0000000Z",
+        "lastActivity": "2026-08-31T02:14:59.0000000Z",
+        "mitreTechniques": ["T1059.001"],
+        "entities": [
+          {
+            "entityType": "Machine",
+            "deviceDnsName": "wkstn-fixture-014.corp.example.com",
+            "mdatpDeviceId": "fixture0000000000000000000000000000a014",
+            "osPlatform": "Windows11"
+          },
+          {
+            "entityType": "User",
+            "accountName": "j.doe.fixture",
+            "domainName": "corp.example.com",
+            "userPrincipalName": "j.doe.fixture@example.com"
+          },
+          {
+            "entityType": "Process",
+            "processId": 7412,
+            "fileName": "powershell.exe",
+            "parentProcessId": 5180,
+            "processCommandLine": "powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAZgBpAHgAdAB1AHIAZQAnAA=="
+          },
+          {
+            "entityType": "Ip",
+            "ipAddress": "192.0.2.44"
+          }
+        ]
+      },
+      {
+        "alertId": "da-fixture-0002",
+        "title": "Suspicious credential dump from LSASS",
+        "description": "A process opened a handle to LSASS with read-memory access. This is synthetic fixture data.",
+        "severity": "High",
+        "status": "InProgress",
+        "category": "CredentialAccess",
+        "detectionSource": "WindowsDefenderAtp",
+        "serviceSource": "MicrosoftDefenderForEndpoint",
+        "firstActivity": "2026-08-31T02:31:22.0000000Z",
+        "lastActivity": "2026-08-31T02:33:10.0000000Z",
+        "mitreTechniques": ["T1003.001"],
+        "entities": [
+          {
+            "entityType": "Machine",
+            "deviceDnsName": "wkstn-fixture-014.corp.example.com",
+            "mdatpDeviceId": "fixture0000000000000000000000000000a014",
+            "osPlatform": "Windows11"
+          },
+          {
+            "entityType": "File",
+            "fileName": "fixture-payload.dll",
+            "filePath": "C:\\Users\\Public",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000001"
+          },
+          {
+            "entityType": "Ip",
+            "ipAddress": "198.51.100.7"
+          }
+        ]
+      }
+    ]
+  },
+  "INC-8892": {
+    "incidentId": "INC-8892",
+    "incidentName": "Suspicious shadow copy deletion on a domain controller",
+    "severity": "Medium",
+    "status": "Resolved",
+    "classification": "FalsePositive",
+    "determination": "SecurityTesting",
+    "assignedTo": "soc.analyst.fixture@example.com",
+    "createdTime": "2026-08-31T04:42:00.0000000Z",
+    "lastUpdateTime": "2026-09-01T09:15:30.0000000Z",
+    "tags": ["fixture", "synthetic-data"],
+    "alerts": [
+      {
+        "alertId": "da-fixture-0003",
+        "title": "Shadow copies deleted via vssadmin",
+        "description": "vssadmin.exe deleted all shadow copies. This is synthetic fixture data.",
+        "severity": "Medium",
+        "status": "Resolved",
+        "category": "Impact",
+        "detectionSource": "WindowsDefenderAtp",
+        "serviceSource": "MicrosoftDefenderForEndpoint",
+        "firstActivity": "2026-08-31T04:41:03.0000000Z",
+        "lastActivity": "2026-08-31T04:41:05.0000000Z",
+        "mitreTechniques": ["T1490"],
+        "entities": [
+          {
+            "entityType": "Machine",
+            "deviceDnsName": "srv-fixture-dc01.corp.example.com",
+            "mdatpDeviceId": "fixture0000000000000000000000000000d001",
+            "osPlatform": "WindowsServer2022"
+          },
+          {
+            "entityType": "User",
+            "accountName": "svc.fixture.sync",
+            "domainName": "corp.example.com",
+            "userPrincipalName": "svc.fixture.sync@example.com"
+          }
+        ]
+      }
+    ]
+  }
+}

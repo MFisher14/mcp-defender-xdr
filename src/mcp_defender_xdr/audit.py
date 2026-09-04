@@ -53,6 +53,11 @@ def audit(event: str, **fields: Any) -> None:
     _logger.info(event, extra={"audit_fields": sanitized})
 
 
+def audit_warning(event: str, **fields: Any) -> None:
+    sanitized = {k: v for k, v in fields.items() if v is not None}
+    _logger.warning(event, extra={"audit_fields": sanitized})
+
+
 def audit_error(event: str, **fields: Any) -> None:
     sanitized = {k: v for k, v in fields.items() if v is not None}
     _logger.error(event, extra={"audit_fields": sanitized})

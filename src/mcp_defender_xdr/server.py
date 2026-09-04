@@ -14,9 +14,15 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
 from . import __version__
-from .audit import audit, audit_error
+from .audit import audit, audit_error, audit_warning
 from .auth import TokenManager, build_default_token_manager
 from .errors import DefenderError, ErrorCode
+from .fixtures import (
+    FIXTURE_MODE_ENV,
+    SYNTHETIC_NOTICE,
+    FixtureStore,
+    fixture_mode_requested,
+)
 from .tool_context import ToolContext
 from .tools import advanced_hunting, alerts, incidents
 
@@ -100,7 +106,12 @@ async def _dispatch(
     return _success_result(data)
 
 
-def build_server(token_manager: TokenManager) -> Server:
+def build_server(
+    token_manager: TokenManager | None = None,
+    *,
+    fixtures: FixtureStore | None = None,
+) -> Server:
+    """Build the MCP server against either live credentials or offline fixtures."""
     server: Server = Server(ServerName, version=__version__)
 
     @server.list_tools()  # type: ignore[no-untyped-call,untyped-decorator]
@@ -113,7 +124,7 @@ def build_server(token_manager: TokenManager) -> Server:
         if handler is None:
             audit_error("tool-unknown", tool=name)
             return _error_result(ErrorCode.INVALID_INPUT, f"Unknown tool: {name}")
-        async with ToolContext(token_manager) as ctx:
+        async with ToolContext(token_manager, fixtures=fixtures) as ctx:
             return await _dispatch(handler, ctx, arguments, name)
 
     return server
@@ -121,14 +132,35 @@ def build_server(token_manager: TokenManager) -> Server:
 
 async def _async_main() -> None:
     audit("server-starting", version=__version__)
+    token_manager: TokenManager | None = None
+    fixtures: FixtureStore | None = None
     try:
-        token_manager = build_default_token_manager()
+        if fixture_mode_requested():
+            # Offline evaluation: no tenant, no App Registration, no certificate.
+            # Credential discovery is skipped outright rather than attempted and
+            # forgiven, so the server boots with no environment variables set.
+            fixtures = FixtureStore.load()
+            audit_warning(
+                "FIXTURE-MODE-ENABLED-NO-LIVE-CREDENTIALS",
+                fixture_mode=True,
+                enabled_by=FIXTURE_MODE_ENV,
+                fixture_dir=str(fixtures.source_dir),
+                tenants=list(fixtures.tenants),
+                notice=SYNTHETIC_NOTICE,
+            )
+            print(
+                f"mcp-defender-xdr: OFFLINE FIXTURE MODE ({FIXTURE_MODE_ENV} is set). "
+                "All tool output is synthetic; no Defender API calls will be made.",
+                file=sys.stderr,
+            )
+        else:
+            token_manager = build_default_token_manager()
     except DefenderError as exc:
         audit_error("server-startup-failed", error_class=exc.__class__.__name__)
         print(f"mcp-defender-xdr: {exc}", file=sys.stderr)
         sys.exit(2)
 
-    server = build_server(token_manager)
+    server = build_server(token_manager, fixtures=fixtures)
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

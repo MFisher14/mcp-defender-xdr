@@ -8,7 +8,7 @@ import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Protocol, Self, runtime_checkable
 
 import httpx
 
@@ -40,6 +40,22 @@ def _parse_retry_after(value: str | None) -> float | None:
     if seconds < 0:
         return None
     return min(seconds, 60.0)
+
+
+@runtime_checkable
+class DefenderApi(Protocol):
+    """The read surface tools depend on.
+
+    Implemented by :class:`DefenderClient` (live HTTP) and by
+    ``fixtures.FixtureClient`` (recorded synthetic payloads), so tool code is
+    identical in both modes.
+    """
+
+    async def get(
+        self, path: str, *, params: Mapping[str, Any] | None = None
+    ) -> dict[str, Any]: ...
+
+    async def post(self, path: str, *, json: Mapping[str, Any] | None = None) -> dict[str, Any]: ...
 
 
 class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):

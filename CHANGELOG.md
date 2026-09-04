@@ -4,6 +4,30 @@ All notable changes to `mcp-defender-xdr` are recorded in this file. The
 format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Offline fixture mode. `MCP_DEFENDER_XDR_FIXTURE_MODE=synthetic-fixtures-no-live-data`
+  serves recorded synthetic responses for all three tools and skips credential
+  validation entirely, so the server boots with no environment variables set —
+  no Azure tenant, App Registration, or certificate needed to evaluate it.
+  Enabling requires that exact value; any other non-empty value fails startup
+  with exit code 2 rather than resolving to either mode.
+- `examples/` with fixture JSON for each tool (raw upstream response shapes, so
+  the real per-tool transforms run against them), demo prompts, and a
+  no-credentials MCP client config. Fixtures are force-included in built wheels
+  at `mcp_defender_xdr/fixture_data`.
+- Fixture output is marked as synthetic in three independent places: a
+  `fixture_mode` flag and `notice` in every tool result, a WARNING-level
+  `FIXTURE-MODE-ACTIVE-SYNTHETIC-DATA` audit record on every tool call, and
+  invented `example.com` hostnames with RFC 5737 documentation IPs throughout —
+  the last enforced by tests.
+- `DefenderApi` protocol, implemented by both the live HTTP client and the
+  fixture client, so tool code is identical in both modes.
+- `ConfigError` for startup misconfiguration and `audit_warning` for
+  WARNING-level audit records.
+
 ## [0.1.1] - 2026-09-04
 
 ### Added

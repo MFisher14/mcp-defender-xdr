@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..audit import audit_tool_call
-from ..defender_client import DefenderClient
+from ..defender_client import DefenderApi
 from ..tool_context import ToolContext
 from ..validation import AdvancedHuntingInput, parse_input
 from ._runtime import dispatch, resolve_targets
@@ -62,7 +62,7 @@ async def run(ctx: ToolContext, raw_params: dict[str, Any]) -> dict[str, Any]:
         "tenants": targets,
     }
 
-    async def _call(client: DefenderClient) -> dict[str, Any]:
+    async def _call(client: DefenderApi) -> dict[str, Any]:
         body = {"Query": params.query, "Timespan": params.timespan}
         response = await client.post(_ENDPOINT, json=body)
         schema = response.get("Schema", [])

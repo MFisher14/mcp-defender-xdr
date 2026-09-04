@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..audit import audit_tool_call
-from ..defender_client import DefenderClient
+from ..defender_client import DefenderApi
 from ..tool_context import ToolContext
 from ..validation import AlertsInput, parse_input
 from ._runtime import dispatch, resolve_targets
@@ -98,7 +98,7 @@ async def run(ctx: ToolContext, raw_params: dict[str, Any]) -> dict[str, Any]:
 
     odata_filter = _build_filter(severity_value, status_value)
 
-    async def _call(client: DefenderClient) -> dict[str, Any]:
+    async def _call(client: DefenderApi) -> dict[str, Any]:
         query_params: dict[str, Any] = {"$top": params.limit}
         if odata_filter is not None:
             query_params["$filter"] = odata_filter
