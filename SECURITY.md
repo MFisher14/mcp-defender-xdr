@@ -57,9 +57,10 @@ These are commitments for a solo maintainer; we aim to beat them.
 The following are explicitly out of scope and should be reported
 elsewhere:
 
-- Vulnerabilities in the upstream **Microsoft Graph Security API** or
-  **Defender for Endpoint** — report to
-  [MSRC](https://msrc.microsoft.com/).
+- Vulnerabilities in the upstream **Microsoft Defender for Endpoint REST
+  API** (`api.securitycenter.microsoft.com`) or **Defender XDR** — report to
+  [MSRC](https://msrc.microsoft.com/). This server does not call the
+  Microsoft Graph Security API.
 - Attacks requiring an already-compromised local user account on the
   host machine. This is acknowledged as a residual risk in the threat
   model (see [`THREAT_MODEL.md`](./THREAT_MODEL.md) actor A3 — host
