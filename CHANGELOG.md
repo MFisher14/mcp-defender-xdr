@@ -34,6 +34,13 @@ release that never shipped.
   fixture client, so tool code is identical in both modes.
 - `ConfigError` for startup misconfiguration and `audit_warning` for
   WARNING-level audit records.
+- `THREAT_MODEL.md` T8 covering offline fixture mode: synthetic data mistaken
+  for live, and the inverse — a config intended for fixtures reaching a live
+  tenant. Mitigations were verified against the implementation; two gaps are
+  recorded as residual risk rather than claimed as controls (error results
+  carry no fixture marking, and calls rejected at input validation emit no
+  fixture audit warning). Referenced from `OWASP_MCP_TOP10.md` MCP08 and
+  MCP10.
 - `SECURITY.md`, `CONTRIBUTING.md`, and `CODEOWNERS`.
 - `OWASP_MCP_TOP10.md` mapping the server's controls to the OWASP MCP Top 10.
 
@@ -50,6 +57,9 @@ release that never shipped.
   published to PyPI, so both commands failed for anyone who followed them.
   They are retained below, marked as planned for a future release.
 - Threat model T1 reframed as OWASP LLM01 indirect prompt injection.
+- The `mcp-defender` comparison section moved from directly under the intro
+  into Scope & Design Philosophy, so it follows rather than precedes what the
+  server does. Content unchanged.
 
 ### Fixed
 
@@ -63,15 +73,31 @@ release that never shipped.
   REST API at `api.securitycenter.microsoft.com`, not the Microsoft Graph
   Security API, and `DEFENDER_API_BASE` overrides the host only — it does not
   change the pinned OAuth scope.
-- Permission names corrected throughout to the WindowsDefenderATP resource the
-  token scope actually resolves to: `AdvancedQuery.Read.All`,
-  `Alert.Read.All`, `Incident.Read.All`. The README table had hedged between
-  WindowsDefenderATP and Microsoft Graph, and the Graph names had spread to the
-  `query_advanced_hunting` tool description, `THREAT_MODEL.md`,
-  `OWASP_MCP_TOP10.md`, and `CONTRIBUTING.md`.
+- **Action required — re-grant your Azure API permissions.** The required
+  application permissions are corrected throughout to the WindowsDefenderATP
+  resource that the server's token scope actually resolves to:
+  `AdvancedQuery.Read.All`, `Alert.Read.All`, `Incident.Read.All`.
+
+  Anyone who configured an App Registration by following the previous README
+  granted the Microsoft Graph equivalents — `ThreatHunting.Read.All`,
+  `SecurityEvents.Read.All`, `SecurityIncident.Read.All` — which authorize
+  nothing against `api.securitycenter.microsoft.com`. Such a deployment was
+  never functional: every tool call returns `auth_failure`. This release does
+  not break it, it explains it. To fix: grant and admin-consent the three
+  permissions above on the **WindowsDefenderATP** resource (app ID
+  `fc780465-2017-40d4-a0c5-307022471b92`, listed under "APIs my organization
+  uses", *not* Microsoft Graph), then remove the three Graph permissions. See
+  the README's Prerequisites section.
+
+  The old names had also spread to the `query_advanced_hunting` tool
+  description, `THREAT_MODEL.md`, `OWASP_MCP_TOP10.md`, `CONTRIBUTING.md`,
+  and `SECURITY.md`.
 - Claude Desktop / Claude Code config examples launched the server via `uvx`
   from PyPI, which does not resolve. They now point at the console script in a
   source virtualenv.
+- `SECURITY.md` directed upstream vulnerability reports for "the Microsoft
+  Graph Security API", which this server does not call. It now names the
+  Defender for Endpoint REST API.
 
 ## [0.1.0] - 2026-05-12
 
