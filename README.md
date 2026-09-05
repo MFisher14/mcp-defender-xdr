@@ -17,18 +17,6 @@ and treats every input and every upstream response as untrusted.
 > **v0.1 status:** Certificate-based auth (PFX), multi-tenant via JSON
 > config, fan-out KQL hunts via `tenant: "*"`.
 
-### Not the same project as `mcp-defender`
-
-A separate MCP server named [`mcp-defender`](https://pypi.org/project/mcp-defender/),
-by a different author, has been published on PyPI since January 2026 and
-also exposes Defender Advanced Hunting. This is an unrelated codebase —
-not a fork, no shared lineage — with different design choices: it
-authenticates with X.509 certificates instead of client secrets, it is
-multi-tenant from the ground up with per-tenant token isolation and
-bounded fan-out across tenants, and it ships a published threat model in
-[`THREAT_MODEL.md`](./THREAT_MODEL.md). If you are choosing between them,
-compare on those axes and pick whichever suits your environment.
-
 ---
 
 ## Quickstart (offline)
@@ -476,6 +464,18 @@ WindowsDefenderATP response permissions they require (`Machine.Isolate`,
 model.
 Keeping the read-only and write-capable surfaces in separate processes
 means a compromise of the LLM-facing server cannot cause state changes.
+
+### Not the same project as `mcp-defender`
+
+A separate MCP server named [`mcp-defender`](https://pypi.org/project/mcp-defender/),
+by a different author, has been published on PyPI since January 2026 and
+also exposes Defender Advanced Hunting. This is an unrelated codebase —
+not a fork, no shared lineage — with different design choices: it
+authenticates with X.509 certificates instead of client secrets, it is
+multi-tenant from the ground up with per-tenant token isolation and
+bounded fan-out across tenants, and it ships a published threat model in
+[`THREAT_MODEL.md`](./THREAT_MODEL.md). If you are choosing between them,
+compare on those axes and pick whichever suits your environment.
 
 ---
 
