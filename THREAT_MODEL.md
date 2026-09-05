@@ -297,6 +297,87 @@ operations between `dispatch` and the per-tenant `await`.
 
 ---
 
+## T8 — Fixture-mode confusion *(A3, operator)*
+
+**Scenario.** Two symmetric failures, both about which reality the output
+describes. (a) `MCP_DEFENDER_XDR_FIXTURE_MODE` is set somewhere an analyst
+does not look — a shell profile, a systemd unit, a shared MCP client config,
+or by a host co-tenant who can write the process environment — and the
+analyst runs a hunt, reads five processes on `wkstn-fixture-014`, and draws a
+conclusion about their estate from data that describes no real machine. This
+is the T7 failure in a different costume: in a SOC, confidently wrong data is
+worse than no data. (b) The inverse: a walkthrough written to be inert omits
+or misspells the variable, the server falls through to live credentials, and
+a demo queries a production tenant.
+
+**Mitigations.**
+
+1. **Exact-match opt-in.** `fixture_mode_requested` in `fixtures.py` enables
+   the mode only when the variable equals `synthetic-fixtures-no-live-data`
+   (surrounding whitespace is stripped; the comparison is otherwise exact and
+   case-sensitive). The sentinel is deliberately long and descriptive so that
+   it cannot be arrived at by habit, by copying a generic `=true`, or by
+   guessing.
+2. **No silent fall-through in either direction.** Any other non-empty value
+   raises `ConfigError`, which `_async_main` maps to exit code 2 with the
+   correct value named in the message. An unrecognized value resolves to
+   *neither* mode: a typo can neither serve synthetic data nor quietly reach
+   a live tenant. Unset or blank is the only way to select live mode.
+3. **Mutually exclusive backends.** `ToolContext.__init__` requires exactly
+   one of `token_manager` or `fixtures` and raises `ValueError` on both or
+   neither. There is no runtime path by which a context degrades from one
+   backend to the other, so a partially-initialised server cannot serve a
+   mixture. In fixture mode no `httpx` client is constructed at all.
+4. **Marking in the model-visible payload.** `mark_result` stamps
+   `fixture_mode: true` and a `notice` naming the data as synthetic onto every
+   successful tool result, single-tenant and fan-out envelope alike. The model
+   reads this on each call, so its own prose to the analyst tends to repeat
+   the disclaimer rather than silently launder it.
+5. **Per-call audit warning.** `dispatch` emits a WARNING-level
+   `FIXTURE-MODE-ACTIVE-SYNTHETIC-DATA` record to the stderr audit stream on
+   every call that reaches it, carrying the tool name and target tenants.
+   Deliberately per-call rather than a startup banner, which would scroll out
+   of view long before the calls an analyst actually reads.
+6. **Startup banner.** Enabling the mode logs
+   `FIXTURE-MODE-ENABLED-NO-LIVE-CREDENTIALS` and prints a line to stderr
+   naming the variable and stating that no Defender API calls will be made.
+7. **Self-evidently synthetic corpus.** Every fixture hostname is invented
+   and under `example.com`; every IP is drawn from the RFC 5737 documentation
+   ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`); every fixture
+   tenant key ends in `-fixture`. This is enforced by tests
+   (`test_every_ip_is_an_rfc5737_documentation_address`,
+   `test_every_hostname_and_email_uses_example_com`), not left to the care of
+   whoever edits the corpus next.
+
+**Residual risk.** Three gaps, in decreasing order of how likely they are to
+matter.
+
+*Error results are not marked.* `_error_result` in `server.py` returns
+`{"error": {...}}` without the `fixture_mode` flag or notice, because marking
+is applied in `dispatch` and an exception unwinds past it. A `not_found` for
+an incident ID absent from the fixture corpus is therefore indistinguishable
+in-payload from a `not_found` against a live tenant — an analyst could
+conclude an incident does not exist in their estate when the server never
+looked. The per-call audit warning still fires, so the evidence is in the
+log, but not in what the model reads.
+
+*Calls rejected at input validation emit no warning.* `parse_input` raises
+before `dispatch` is reached, so a query rejected by the length cap or the
+forbidden-substring filter produces no `FIXTURE-MODE-ACTIVE-SYNTHETIC-DATA`
+record. No data is returned in that case either, so nothing can be mistaken
+for live results; the gap is in log completeness, not in output integrity.
+
+*An attacker who already controls the process environment has better
+options.* Someone who can set `MCP_DEFENDER_XDR_FIXTURE_MODE` can equally set
+`AZURE_TENANT_ID`, `MCP_DEFENDER_XDR_TENANTS_FILE`, or `DEFENDER_API_BASE` to
+point the server at infrastructure they control — a strictly stronger
+position, and one that returns attacker-authored data with no synthetic
+marking whatsoever. This control is therefore scoped to operator error and
+misconfiguration, which is where the realistic risk lies. Against A3 it is
+defence in depth, not a boundary; that boundary is the host OS (see T2, T4).
+
+---
+
 ## Non-goals
 
 - **PII scrubbing inside Defender data.** The server returns whatever

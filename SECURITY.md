@@ -65,6 +65,12 @@ elsewhere:
   host machine. This is acknowledged as a residual risk in the threat
   model (see [`THREAT_MODEL.md`](./THREAT_MODEL.md) actor A3 — host
   co-tenant).
+- Reports that offline fixture mode returns synthetic data. That is its
+  documented purpose; it is opt-in via an exact-match environment variable
+  and is labelled in every successful result and in the audit stream (see
+  [`THREAT_MODEL.md`](./THREAT_MODEL.md) T8). A demonstrated way to *enable*
+  it without setting that variable, or to make fixture output
+  indistinguishable from live data, **is** in scope.
 - Social-engineering attacks against the maintainer.
 - Findings from automated scanners with no demonstrated exploit path.
 

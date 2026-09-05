@@ -133,7 +133,7 @@ layer it in front of the MCP client, not inside the server.
 
 ## MCP08:2025 — Lack of Audit and Telemetry
 
-**Status: ✅ Mitigated** *(see T2, T6, T7)*
+**Status: ✅ Mitigated** *(see T2, T6, T7, T8)*
 
 `audit.py` emits one JSON-lines record per tool invocation to stderr,
 leaving stdout reserved for the MCP stdio protocol. The
@@ -146,7 +146,10 @@ counts, and KQL query text; tokens, passphrases, PFX contents, raw
 upstream bodies, and HTTP correlation IDs are not. Retry paths and
 per-tenant fan-out outcomes both produce audit records, giving an
 operator the signal needed to spot the rate-limit abuse pattern
-described in T6.
+described in T6. When offline fixture mode is active, every tool call
+that reaches `dispatch` additionally emits a WARNING-level
+`FIXTURE-MODE-ACTIVE-SYNTHETIC-DATA` record, so a reader of the audit
+stream can never mistake a synthetic run for a live one (T8).
 
 ## MCP09:2025 — Shadow MCP Servers
 
@@ -165,7 +168,7 @@ path, which falls under MCP04.
 
 ## MCP10:2025 — Context Injection & Over-Sharing
 
-**Status: ⚠️ Partial** *(see T5, T7)*
+**Status: ⚠️ Partial** *(see T5, T7, T8)*
 
 Per-tenant results from fan-out are labelled with the *server-side*
 `tenant` key — never parsed out of the upstream JSON body — so an
@@ -180,6 +183,13 @@ deliberate: the server returns whatever Defender returns, and PII
 scrubbing is a documented non-goal in `THREAT_MODEL.md`. Operators
 who need DLP must run it downstream of the MCP client.
 
+Provenance of the context is handled separately: in offline fixture mode
+every successful result carries `fixture_mode: true` and a synthetic-data
+`notice` in the payload the model reads, so the model's own summaries
+repeat the disclaimer rather than laundering invented hosts into the
+analyst's conclusions. Error results are not marked this way — see the
+residual risk under T8.
+
 ---
 
 ## Summary
@@ -193,6 +203,6 @@ who need DLP must run it downstream of the MCP client.
 | MCP05    | Command Injection & Execution                               | ✅ Mitigated   | T1, T3         |
 | MCP06    | Intent Flow Subversion (Prompt Injection)                   | ⚠️ Partial      | T1, T5         |
 | MCP07    | Insufficient Authentication & Authorization                 | ✅ Mitigated   | T2, T3, T7     |
-| MCP08    | Lack of Audit and Telemetry                                 | ✅ Mitigated   | T2, T6, T7     |
+| MCP08    | Lack of Audit and Telemetry                                 | ✅ Mitigated   | T2, T6, T7, T8 |
 | MCP09    | Shadow MCP Servers                                          | ⚠️ Partial      | T3             |
-| MCP10    | Context Injection & Over-Sharing                            | ⚠️ Partial      | T5, T7         |
+| MCP10    | Context Injection & Over-Sharing                            | ⚠️ Partial      | T5, T7, T8     |
