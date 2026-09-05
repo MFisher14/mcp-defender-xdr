@@ -6,8 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-09-04
 
-First tagged release. Supersedes the 0.1.1 version bump, which was developed
-but never tagged or published, so its changes are folded in here.
+Supersedes the 0.1.1 version bump, which was developed but never tagged or
+published, so its changes are folded in here rather than kept as a separate
+release that never shipped.
 
 ### Added
 
@@ -90,3 +91,4 @@ but never tagged or published, so its changes are folded in here.
 - MIT license.
 
 [0.2.0]: https://github.com/MFisher14/mcp-defender-xdr/releases/tag/v0.2.0
+[0.1.0]: https://github.com/MFisher14/mcp-defender-xdr/releases/tag/v0.1.0
