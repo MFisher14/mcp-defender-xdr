@@ -216,12 +216,25 @@ class FixtureClient:
         raise UpstreamError(f"No fixture recorded for GET {path}")
 
     async def post(self, path: str, *, json: Mapping[str, Any] | None = None) -> dict[str, Any]:
-        del json  # The recorded result set is returned regardless of the KQL sent.
         if path == _ADVANCED_HUNTING_PATH:
+            # The recorded result set is returned regardless of the KQL sent.
             return dict(self._store.advanced_hunting)
         if _LA_QUERY_RE.match(path) and isinstance(self._store.sentinel.get("query_result"), dict):
-            return dict(self._store.sentinel["query_result"])
+            return self._sentinel_query(json)
         raise UpstreamError(f"No fixture recorded for POST {path}")
+
+    def _sentinel_query(self, body: Mapping[str, Any] | None) -> dict[str, Any]:
+        """Serve a saved search's own result when its exact KQL is posted, else the default."""
+        query = (body or {}).get("query")
+        saved = self._store.sentinel.get("saved_searches", {}).get("value", [])
+        per_search = self._store.sentinel.get("saved_search_results", {})
+        if isinstance(saved, list) and isinstance(per_search, dict):
+            for item in saved:
+                props = item.get("properties", {}) if isinstance(item, dict) else {}
+                recorded = per_search.get(item.get("name")) if isinstance(item, dict) else None
+                if isinstance(recorded, dict) and props.get("query") == query:
+                    return dict(recorded)
+        return dict(self._store.sentinel["query_result"])
 
     def _incident(self, incident_id: str) -> dict[str, Any]:
         incident = self._store.incidents.get(incident_id)
