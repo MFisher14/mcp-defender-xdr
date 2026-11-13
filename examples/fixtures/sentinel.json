@@ -1,5 +1,5 @@
 {
-  "_comment": "SYNTHETIC FIXTURE DATA. Not from a live Sentinel workspace. 'workspaces' assigns a Sentinel workspace to contoso-fixture only (fabrikam-fixture has none, to show the not-configured error in fan-out). 'query_result' is a raw POST /v1/workspaces/{id}/query response; 'saved_searches' a raw ARM savedSearches list. Hosts are invented; IPs are RFC 5737 documentation ranges.",
+  "_comment": "SYNTHETIC FIXTURE DATA. Not from a live Sentinel workspace. 'workspaces' assigns a Sentinel workspace to contoso-fixture only (fabrikam-fixture has none, to show the not-configured error in fan-out). 'query_result' is a raw POST /v1/workspaces/{id}/query response for ad-hoc KQL, and 'saved_search_results' holds the response for each saved search, served when the posted KQL is exactly that saved search's query; 'saved_searches' a raw ARM savedSearches list. Hosts are invented; IPs are RFC 5737 documentation ranges.",
   "workspaces": {
     "contoso-fixture": {
       "workspace_id": "0f1c5000-0000-4000-8000-00000000f1c5",
@@ -200,5 +200,66 @@
         }
       }
     ]
+  },
+  "saved_search_results": {
+    "fixture-hunt-beaconing": {
+      "tables": [
+        {
+          "name": "PrimaryResult",
+          "columns": [
+            {
+              "name": "TimeGenerated",
+              "type": "datetime"
+            },
+            {
+              "name": "SourceHostName",
+              "type": "string"
+            },
+            {
+              "name": "DestinationIP",
+              "type": "string"
+            },
+            {
+              "name": "Connections",
+              "type": "long"
+            },
+            {
+              "name": "Bytes",
+              "type": "long"
+            }
+          ],
+          "rows": [
+            [
+              "2026-08-31T02:10:00.0000000Z",
+              "wkstn-fixture-014.corp.example.com",
+              "198.51.100.7",
+              6,
+              431120
+            ],
+            [
+              "2026-08-31T02:20:00.0000000Z",
+              "wkstn-fixture-014.corp.example.com",
+              "198.51.100.7",
+              6,
+              402987
+            ],
+            [
+              "2026-08-31T02:30:00.0000000Z",
+              "wkstn-fixture-014.corp.example.com",
+              "198.51.100.7",
+              7,
+              812455
+            ],
+            [
+              "2026-08-31T04:50:00.0000000Z",
+              "lt-fixture-233.corp.example.com",
+              "198.51.100.7",
+              4,
+              1290
+            ]
+          ]
+        }
+      ]
+    }
   }
 }

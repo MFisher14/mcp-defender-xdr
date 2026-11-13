@@ -366,7 +366,12 @@ async def test_fixture_sentinel_query_and_list(fixture_ctx: ToolContext) -> None
     assert listed["fixture_mode"] is True
     assert len(listed["hunting_queries"]) == 3  # the "Reports" item is filtered out
     assert ran["saved_query"]["display_name"].startswith("Periodic outbound beaconing")
+    # The saved search gets its own recorded, aggregated result shape...
+    assert [c["name"] for c in ran["schema"]][-2:] == ["Connections", "Bytes"]
     assert ran["metadata"]["row_count"] == 4
+    # ...while ad-hoc KQL gets the default result set.
+    adhoc = fan["results"][0]["result"]
+    assert "DeviceAction" in [c["name"] for c in adhoc["schema"]]
     slots = {r["tenant"]: r for r in fan["results"]}
     assert "result" in slots["contoso-fixture"]
     assert slots["fabrikam-fixture"]["error"]["code"] == "invalid_input"
