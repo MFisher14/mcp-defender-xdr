@@ -46,6 +46,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transitively through `msal`).
 - `AzureCredentials.cert_path` is optional; exactly one of `cert_path` or
   the new `certificate` must be set.
+- Streamable HTTP transport (#2): `--transport http` or
+  `MCP_DEFENDER_XDR_TRANSPORT=http` serves MCP at `/mcp` (default
+  `127.0.0.1:8765`). stdio remains the default. It can serve TLS directly,
+  refuses a plaintext non-loopback bind unless explicitly opted in, and
+  has DNS-rebinding protection on.
+- Bearer-token authentication for the HTTP transport (#5): signed JWTs
+  verified with one pinned algorithm (HS* with a ≥32-byte secret, or an
+  asymmetric public key), `aud`/`iss` bound to the instance, required
+  `exp`/`iat`/`sub`/`jti`, a 15-minute maximum lifetime, and replay
+  binding (a token opens one session; a session belongs to one `sub`).
+  Rejections are audited without the token. `examples/mint_token.py`
+  mints development tokens.
+- Every audit record now includes `transport`.
+- THREAT_MODEL.md: adversary A4 (network attacker) and T8 (token
+  validation).
 
 ## [0.2.0] - 2026-09-04
 

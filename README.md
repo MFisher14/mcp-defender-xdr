@@ -448,6 +448,78 @@ shell's `PATH`, so a bare `"mcp-defender-xdr"` will not resolve.
 
 ---
 
+## HTTP transport (remote clients)
+
+stdio is the default and needs nothing here. To serve MCP to clients on
+another host, run the **Streamable HTTP** transport (JSON-RPC over POST,
+with streaming over SSE) at `/mcp`. It requires short-lived signed bearer
+tokens and will not start without them. See
+[`THREAT_MODEL.md`](./THREAT_MODEL.md) T8.
+
+```bash
+export MCP_DEFENDER_XDR_JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export MCP_DEFENDER_XDR_JWT_AUDIENCE="mcp-defender-xdr://soc-prod"
+export MCP_DEFENDER_XDR_JWT_ISSUER="https://tokens.example.com"
+mcp-defender-xdr --transport http            # → http://127.0.0.1:8765/mcp
+```
+
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `MCP_DEFENDER_XDR_TRANSPORT` | `stdio` | `stdio` or `http`. `--transport` overrides it. |
+| `MCP_DEFENDER_XDR_HTTP_HOST` / `_PORT` / `_PATH` | `127.0.0.1` / `8765` / `/mcp` | Bind address and endpoint. `--host` and `--port` override. |
+| `MCP_DEFENDER_XDR_HTTP_TLS_CERTFILE` / `_KEYFILE` | — | Serve HTTPS directly. **Required for a non-loopback bind**, unless the next variable is set. |
+| `MCP_DEFENDER_XDR_HTTP_ALLOW_PLAINTEXT` | — | `behind-tls-terminating-proxy`, the only accepted value, permits a plaintext non-loopback bind behind a TLS proxy. |
+| `MCP_DEFENDER_XDR_HTTP_ALLOWED_HOSTS` | loopback + bind host | Comma-separated `Host` header allowlist (DNS-rebinding protection). Set it to your public hostname behind a proxy. |
+| `MCP_DEFENDER_XDR_HTTP_ALLOWED_ORIGINS` | none | Comma-separated `Origin` allowlist for browser clients. |
+| `MCP_DEFENDER_XDR_JWT_AUDIENCE` / `_ISSUER` | — | **Required.** Tokens' `aud` and `iss` must equal these exactly. |
+| `MCP_DEFENDER_XDR_JWT_ALGORITHM` | `HS256` | One pinned algorithm. `HS256/384/512`, or `RS*`, `PS*`, `ES*`, `EdDSA`. |
+| `MCP_DEFENDER_XDR_JWT_SECRET` | — | HMAC shared secret, at least 32 bytes (HS* only). |
+| `MCP_DEFENDER_XDR_JWT_PUBLIC_KEY_FILE` | — | PEM **public** key (asymmetric only). The server never needs a private key. |
+| `MCP_DEFENDER_XDR_JWT_MAX_TTL_SECONDS` | `900` | Longest permitted `exp − iat` (60–3600). |
+
+**Tokens.** Required claims are `iss`, `aud`, `sub`, `iat`, `exp`, and a
+unique `jti`. The server only *validates* tokens. Issue them from your
+identity provider or token service. For development,
+[`examples/mint_token.py`](./examples/mint_token.py) mints one:
+
+```bash
+python examples/mint_token.py --audience mcp-defender-xdr://soc-prod \
+  --issuer https://tokens.example.com --subject analyst@example.com
+```
+
+**One token, one session.** A token can open a single MCP session and is
+then bound to it. A session is bound to the token's `sub`. A fresh token
+for the same `sub` may continue the session, but a replayed token cannot
+open a second one. Clients should therefore mint a token per connection,
+not reuse one from a static config.
+
+**Claude Code** does this with `headersHelper`, a command that prints the
+headers as JSON and runs on every connection:
+
+```json
+{
+  "mcpServers": {
+    "defender-xdr": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "headersHelper": "/path/to/print-defender-token-header.sh"
+    }
+  }
+}
+```
+
+```sh
+#!/bin/sh
+# print-defender-token-header.sh
+printf '{"Authorization": "Bearer %s"}' "$(your-token-command --audience mcp-defender-xdr://soc-prod)"
+```
+
+Every audit record carries `"transport": "stdio" | "http"`. HTTP mode also
+logs `http-session-opened` (`sub`, `jti`, session ID) and
+`http-auth-rejected` (reason code, client address). It never logs the token.
+
+---
+
 ## Tools
 
 Every tool accepts an optional `tenant` parameter:

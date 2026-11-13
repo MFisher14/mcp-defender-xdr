@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 import mcp.types as mcp_types
@@ -14,14 +16,22 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
 from . import __version__
-from .audit import audit, audit_error, audit_warning
+from .audit import audit, audit_error, audit_warning, set_transport
 from .auth import TokenManager, build_default_token_manager
-from .errors import DefenderError, ErrorCode
+from .errors import ConfigError, DefenderError, ErrorCode
 from .fixtures import (
     FIXTURE_MODE_ENV,
     SYNTHETIC_NOTICE,
     FixtureStore,
     fixture_mode_requested,
+)
+from .http_transport import (
+    TRANSPORT_ENV,
+    TRANSPORT_HTTP,
+    TRANSPORT_STDIO,
+    HttpSettings,
+    http_settings_from_env,
+    serve_http,
 )
 from .quota import QuotaTracker
 from .tool_context import ToolContext
@@ -140,11 +150,51 @@ def build_server(
     return server
 
 
-async def _async_main() -> None:
-    audit("server-starting", version=__version__)
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="mcp-defender-xdr",
+        description="MCP server for Microsoft Defender XDR (read-only).",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=[TRANSPORT_STDIO, TRANSPORT_HTTP],
+        default=None,
+        help=f"Transport to serve (default: ${TRANSPORT_ENV} or 'stdio').",
+    )
+    parser.add_argument("--host", default=None, help="HTTP bind host (default 127.0.0.1).")
+    parser.add_argument("--port", type=int, default=None, help="HTTP bind port (default 8765).")
+    return parser.parse_args(argv)
+
+
+def resolve_transport(cli_value: str | None, env: Mapping[str, str]) -> str:
+    """CLI flag wins; then the env var; then stdio. Unknown values are refused."""
+    if cli_value is not None:
+        return cli_value
+    raw = (env.get(TRANSPORT_ENV) or "").strip().lower()
+    if not raw:
+        return TRANSPORT_STDIO
+    if raw not in (TRANSPORT_STDIO, TRANSPORT_HTTP):
+        raise ConfigError(
+            f"{TRANSPORT_ENV} must be '{TRANSPORT_STDIO}' or '{TRANSPORT_HTTP}', got {raw!r}."
+        )
+    return raw
+
+
+async def _async_main(argv: Sequence[str] | None = None) -> None:
+    args = _parse_args(argv)
     token_manager: TokenManager | None = None
     fixtures: FixtureStore | None = None
+    http_settings: HttpSettings | None = None
     try:
+        transport = resolve_transport(args.transport, os.environ)
+        set_transport(transport)
+        audit("server-starting", version=__version__)
+        if transport == TRANSPORT_HTTP:
+            # Validate the auth config before touching credentials, so a
+            # misconfigured listener never gets as far as loading a PFX.
+            http_settings = http_settings_from_env(os.environ, host=args.host, port=args.port)
+        elif args.host is not None or args.port is not None:
+            raise ConfigError("--host/--port apply only to --transport http")
         if fixture_mode_requested():
             # Offline evaluation: no tenant, no App Registration, no certificate.
             # Credential discovery is skipped outright rather than attempted and
@@ -171,6 +221,9 @@ async def _async_main() -> None:
         sys.exit(2)
 
     server = build_server(token_manager, fixtures=fixtures)
+    if http_settings is not None:
+        await serve_http(server, http_settings)
+        return
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -179,9 +232,9 @@ async def _async_main() -> None:
         )
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     try:
-        asyncio.run(_async_main())
+        asyncio.run(_async_main(argv))
     except KeyboardInterrupt:
         audit("server-interrupted")
     except SystemExit:

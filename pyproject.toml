@@ -44,6 +44,11 @@ dependencies = [
     "cryptography>=42.0.0",
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
+    # HTTP transport (#2/#5). starlette and uvicorn also arrive via `mcp`, but
+    # this package imports them directly, so it declares them.
+    "pyjwt[crypto]>=2.8.0",
+    "starlette>=0.27",
+    "uvicorn>=0.31.1",
 ]
 
 [project.optional-dependencies]
@@ -103,6 +108,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "S101",  # asserts allowed in tests
+    "S104",  # binding-address literals are test inputs, not binds
     "S105",  # hardcoded password strings allowed in tests
     "S106",  # hardcoded password args allowed in tests
 ]
