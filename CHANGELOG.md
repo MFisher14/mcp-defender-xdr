@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   permissions are required beyond `AdvancedQuery.Read.All`.
 - Offline fixtures for all three (`examples/fixtures/investigations.json`),
   routed by a tag on the first line of each server-built query.
+- Per-tenant rolling-window quotas (#11). The tenants file accepts
+  `default_quota` and per-tenant `quota` objects with `requests_per_minute`
+  and `rows_per_minute`. A tenant over quota gets a `quota_exceeded` error
+  in its own fan-out slot while sibling tenants are unaffected. Each
+  decision is audited as `quota-decision`. State is in-process only.
+- `quota_exceeded` error code (`QuotaExceededError`).
 
 ## [0.2.0] - 2026-09-04
 

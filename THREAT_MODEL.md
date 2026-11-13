@@ -256,12 +256,20 @@ App Registration or producing a noisy 429 storm in the logs.
    clients do not synchronize their retries.
 4. **Caller observability.** Every retry path produces an audit log
    record, so an operator can spot abuse.
+5. **Per-tenant server-side quotas (optional).** The tenants file can
+   set `requests_per_minute` and `rows_per_minute` per tenant (or as a
+   `default_quota`). A tenant over its rolling 60-second budget is refused
+   in-process with `quota_exceeded` before any upstream call, and in a
+   fan-out only that tenant's slot fails. Each decision is audited as
+   `quota-decision`. See `quota.py`.
 
 **Residual risk.** Abuse from a single trusted MCP client (i.e., a
 user with legitimate access to the server) is bounded but not
-prevented; the operator must monitor the audit stream. Per-tenant
-quota / circuit-breaker enforcement during fan-out is on the roadmap
-for v0.3.
+prevented; the operator must monitor the audit stream. Quotas are
+opt-in, live in one process's memory (a restart or a second process
+starts a fresh budget), and charge rows only after a call returns, so a
+single huge query can overshoot `rows_per_minute` once before the
+tenant is refused.
 
 ---
 

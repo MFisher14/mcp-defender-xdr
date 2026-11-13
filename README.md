@@ -296,6 +296,42 @@ Two passphrase patterns are supported per tenant; pick **one**:
 - **`cert_passphrase`** — inline literal. Convenient with `sops`/`age`
   but emits a warning to the audit log. Don't commit it.
 
+#### Per-tenant quotas (optional)
+
+By default the server relies on Defender's own rate limits, so during a
+`tenant: "*"` fan-out one expensive tenant can eat the latency budget for
+the rest. A quota caps each tenant over a rolling 60-second window:
+
+```json
+{
+  "default": "contoso",
+  "default_quota": {"requests_per_minute": 30, "rows_per_minute": 50000},
+  "tenants": {
+    "contoso": {"...": "...", "quota": {"requests_per_minute": 60}},
+    "fabrikam": {"...": "..."},
+    "lab": {"...": "...", "quota": null}
+  }
+}
+```
+
+- `default_quota` applies to every tenant without its own `quota` key
+  (`fabrikam` above). A tenant's `quota` replaces the default outright
+  rather than merging with it (`contoso` above has no row limit), and
+  `"quota": null` opts a tenant out (`lab`).
+- `requests_per_minute` counts tool calls admitted for that tenant: a
+  fan-out charges each tenant once, and retries of a 429 or 5xx inside one
+  call are not counted again. `rows_per_minute`
+  counts rows returned, which only approximates cost: a call is admitted
+  while the tenant is under its row budget, and its rows are charged after
+  it returns.
+- A tenant over quota gets a `quota_exceeded` error in its own slot of a
+  fan-out result, with an estimated retry time; sibling tenants are
+  unaffected. On a single-tenant call it is the tool's error.
+- Every admit or deny writes a `quota-decision` audit record with the
+  tenant, the tool, and the usage in the current window.
+- State is held in process memory. It resets on restart and is not shared
+  between server processes.
+
 ---
 
 ## Claude Desktop / Claude Code integration

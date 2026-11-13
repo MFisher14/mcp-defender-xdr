@@ -11,6 +11,7 @@ class ErrorCode(StrEnum):
     UPSTREAM_ERROR = "upstream_error"
     RATE_LIMITED = "rate_limited"
     NOT_FOUND = "not_found"
+    QUOTA_EXCEEDED = "quota_exceeded"
     INTERNAL_ERROR = "internal_error"
 
 
@@ -57,3 +58,13 @@ class RateLimitedError(UpstreamError):
 
 class NotFoundError(UpstreamError):
     code = ErrorCode.NOT_FOUND
+
+
+class QuotaExceededError(DefenderError):
+    """A tenant's server-side request or row quota is spent for the current window."""
+
+    code = ErrorCode.QUOTA_EXCEEDED
+
+    def __init__(self, message: str, *, retry_after_seconds: int) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds

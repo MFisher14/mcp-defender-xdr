@@ -19,6 +19,7 @@ import msal
 
 from .audit import audit
 from .errors import AuthError
+from .quota import TenantQuota
 
 DEFAULT_DEFENDER_RESOURCE = "https://api.securitycenter.microsoft.com"
 DEFAULT_DEFENDER_SCOPE = f"{DEFAULT_DEFENDER_RESOURCE}/.default"
@@ -64,6 +65,10 @@ class CredentialProvider(ABC):
     @property
     def default_tenant_key(self) -> str:
         return DEFAULT_TENANT_KEY
+
+    def quotas(self) -> dict[str, TenantQuota]:
+        """Per-tenant quotas keyed by tenant key. Empty means no server-side limits."""
+        return {}
 
 
 def _require_pfx_readable(path: str, *, source: str) -> None:
@@ -124,6 +129,7 @@ class JsonFileCredentialProvider(CredentialProvider):
             raise AuthError(f"Tenants config is not valid JSON: {self._path}") from exc
 
         self._default_tenant, self._tenants = self._parse(data, env_source)
+        self._quotas = self._parse_quotas(data)
 
     @staticmethod
     def _check_permissions(path: Path) -> None:
@@ -181,6 +187,36 @@ class JsonFileCredentialProvider(CredentialProvider):
         return default_key, parsed
 
     @staticmethod
+    def _parse_quotas(data: dict[str, Any]) -> dict[str, TenantQuota]:
+        """Read ``default_quota`` and each tenant's optional ``quota`` override.
+
+        A tenant without a ``quota`` key inherits ``default_quota``; an
+        explicit ``"quota": null`` opts that tenant out of limits entirely.
+        """
+        try:
+            default = (
+                TenantQuota.from_config(data["default_quota"], where="default_quota")
+                if data.get("default_quota") is not None
+                else None
+            )
+            quotas: dict[str, TenantQuota] = {}
+            for key, entry in data["tenants"].items():
+                if "quota" in entry:
+                    raw = entry["quota"]
+                    quota = (
+                        TenantQuota.from_config(raw, where=f"tenant '{key}'")
+                        if raw is not None
+                        else None
+                    )
+                else:
+                    quota = default
+                if quota is not None and not quota.unlimited:
+                    quotas[key] = quota
+        except ValueError as exc:
+            raise AuthError(f"Invalid quota in tenants config: {exc}") from exc
+        return quotas
+
+    @staticmethod
     def _resolve_passphrase(
         tenant_key: str, entry: dict[str, Any], env_source: dict[str, str]
     ) -> str | None:
@@ -221,6 +257,9 @@ class JsonFileCredentialProvider(CredentialProvider):
     @property
     def default_tenant_key(self) -> str:
         return self._default_tenant
+
+    def quotas(self) -> dict[str, TenantQuota]:
+        return dict(self._quotas)
 
 
 class _MsalAppFactory(Protocol):
@@ -291,6 +330,9 @@ class TokenManager:
 
     def list_tenants(self) -> list[str]:
         return self._credential_provider.list_tenants()
+
+    def quotas(self) -> dict[str, TenantQuota]:
+        return self._credential_provider.quotas()
 
     def get_token(self, tenant_key: str = DEFAULT_TENANT_KEY) -> str:
         cache_key = (tenant_key, self._scope)

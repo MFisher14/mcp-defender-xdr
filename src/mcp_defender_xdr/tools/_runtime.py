@@ -10,6 +10,7 @@ from ..audit import audit, audit_error, audit_warning
 from ..defender_client import DefenderApi
 from ..errors import DefenderError, ErrorCode, InvalidInputError
 from ..fixtures import FIXTURE_AUDIT_EVENT, SYNTHETIC_NOTICE, mark_result
+from ..quota import rows_in
 from ..tool_context import ToolContext
 from ..validation import FAN_OUT_TENANT
 
@@ -47,9 +48,18 @@ async def dispatch(
             notice=SYNTHETIC_NOTICE,
         )
 
+    async def _metered(tenant_key: str) -> dict[str, Any]:
+        """Run one tenant's call inside its quota (when quotas are configured)."""
+        quotas = ctx.quotas
+        if quotas is not None:
+            quotas.admit(tenant_key, tool_name)
+        payload = await call(ctx.client_for(tenant_key))
+        if quotas is not None:
+            quotas.record_rows(tenant_key, rows_in(payload))
+        return payload
+
     if len(targets) == 1:
-        client = ctx.client_for(targets[0])
-        single = await call(client)
+        single = await _metered(targets[0])
         return mark_result(single) if ctx.fixture_mode else single
 
     semaphore = asyncio.Semaphore(ctx.max_fan_out)
@@ -57,8 +67,7 @@ async def dispatch(
     async def _one(tenant_key: str) -> dict[str, Any]:
         async with semaphore:
             try:
-                client = ctx.client_for(tenant_key)
-                payload = await call(client)
+                payload = await _metered(tenant_key)
             except DefenderError as exc:
                 audit_error(
                     "fan-out-tenant-failed",

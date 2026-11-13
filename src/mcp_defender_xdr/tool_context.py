@@ -11,6 +11,7 @@ import httpx
 from .auth import TokenManager
 from .defender_client import DefenderApi, DefenderClient
 from .fixtures import FixtureClient, FixtureStore
+from .quota import QuotaTracker
 
 _USER_AGENT = "mcp-defender-xdr/0.1 (+https://github.com/MFisher14/mcp-defender-xdr)"
 
@@ -31,6 +32,7 @@ class ToolContext(AbstractAsyncContextManager["ToolContext"]):
         http_client: httpx.AsyncClient | None = None,
         max_fan_out: int = 5,
         fixtures: FixtureStore | None = None,
+        quotas: QuotaTracker | None = None,
     ) -> None:
         if (token_manager is None) == (fixtures is None):
             raise ValueError(
@@ -40,6 +42,8 @@ class ToolContext(AbstractAsyncContextManager["ToolContext"]):
         self._token_manager = token_manager
         self._fixtures = fixtures
         self._max_fan_out = max_fan_out
+        # Shared across calls by the server; None means no server-side quotas.
+        self._quotas = quotas
         # Fixture mode issues no requests, so it builds no HTTP stack at all.
         self._owns_http = fixtures is None and http_client is None
         self._http: httpx.AsyncClient | None = http_client
@@ -63,6 +67,10 @@ class ToolContext(AbstractAsyncContextManager["ToolContext"]):
         if self._fixtures is not None:
             return self._fixtures.default_tenant_key
         return self.token_manager.default_tenant_key
+
+    @property
+    def quotas(self) -> QuotaTracker | None:
+        return self._quotas
 
     @property
     def max_fan_out(self) -> int:
