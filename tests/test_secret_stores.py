@@ -578,3 +578,33 @@ def test_token_manager_signs_client_assertion_with_in_memory_key(cert: Cert) -> 
 def test_certificate_material_msal_credential_shape(cert: Cert) -> None:
     material = CertificateMaterial(private_key_pem="k", certificate_pem="c")
     assert material.msal_credential() == {"private_key": "k", "public_certificate": "c"}
+
+
+# ---------- the documented example stays valid ----------
+
+
+def test_cloud_tenants_example_parses(tmp_path: Path, cert: Cert) -> None:
+    example = json.loads(
+        (Path(__file__).resolve().parent.parent / "tenants.cloud.example.json").read_text()
+    )
+    lab_pfx = tmp_path / "lab.pfx"
+    lab_pfx.write_bytes(cert.pfx())
+    example["tenants"]["lab"]["cert_path"] = str(lab_pfx)
+    path = tmp_path / "tenants.json"
+    path.write_text(json.dumps(example))
+    os.chmod(path, 0o600)
+    store = FakeStore(
+        {
+            "defender-xdr-mcp": base64.b64encode(cert.pfx()).decode(),
+            example["tenants"]["fabrikam"]["secret_id"]: cert.pfx("pw"),
+            "defender/fabrikam-passphrase": "pw",
+        }
+    )
+    provider = JsonFileCredentialProvider(
+        path, env={"LAB_CERT_PASS": "x"}, store_factories=_factories(store)
+    )
+    assert provider.list_tenants() == ["contoso", "fabrikam", "lab"]
+    assert provider.get_credentials("contoso").certificate is not None
+    assert provider.get_credentials("lab").cert_path == str(lab_pfx)
+    quotas = provider.quotas()
+    assert set(quotas) == {"contoso", "fabrikam"}

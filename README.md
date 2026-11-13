@@ -204,6 +204,46 @@ mcp-defender-xdr
 
 ## Configuration
 
+### Choosing a deployment
+
+Two independent choices: **how clients reach the server** (transport) and
+**where the certificate lives** (credential provider).
+
+| Scenario | Transport | Credential provider | Start here |
+| -------- | --------- | ------------------- | ---------- |
+| Trying it out, no Azure at all | stdio | none ([fixture mode](#quickstart-offline)) | [Quickstart (offline)](#quickstart-offline) |
+| Laptop / analyst workstation, one tenant | stdio | env vars + PFX on disk | [Single tenant](#single-tenant-development--small-deployments) |
+| Single-tenant production host | stdio | tenants file with one `keyvault` or `aws-secretsmanager` tenant | [Secret manager](#keeping-the-certificate-in-a-secret-manager-optional) |
+| Multi-tenant production (MSSP, many customers) | stdio | tenants file, a secret-manager provider per tenant, plus [quotas](#per-tenant-quotas-optional) | [Multi tenant](#multi-tenant-production) |
+| Shared remote server for a SOC team | HTTP + bearer tokens, behind TLS | tenants file with secret-manager providers | [HTTP transport](#http-transport-remote-clients) |
+
+#### Transports
+
+| | stdio (default) | HTTP (`--transport http`) |
+| - | --------------- | ------------------------- |
+| Who starts the process | The MCP client, on the same machine | You, as a long-running service |
+| Who can call it | Only the client that spawned it | Anyone with network access **and** a valid token |
+| Authentication | Implicit: process ownership | Short-lived signed JWT on every request ([T8](./THREAT_MODEL.md)) |
+| Where the certificate must be | Same host as the client | The server host only; clients hold no Defender credentials |
+| Claude Code | `command` config | `"type": "http"` + `headersHelper` |
+| Claude Desktop | `command` config | Via a stdio bridge (see below); prefer stdio |
+
+#### Credential providers
+
+| Provider | Configured by | Certificate lives | Best for |
+| -------- | ------------- | ----------------- | -------- |
+| Env vars | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CERT_PATH` | PFX on the host | Development, one tenant |
+| Tenants file, `file` | `MCP_DEFENDER_XDR_TENANTS_FILE` → `cert_path` per tenant | PFX on the host | Multiple tenants on a hardened host |
+| Tenants file, `keyvault` | `provider`, `vault_url`, `cert_secret_name` | Azure Key Vault (in memory at runtime) | Hosts with an Azure managed or workload identity |
+| Tenants file, `aws-secretsmanager` | `provider`, `region`, `secret_id` | AWS Secrets Manager (in memory at runtime) | Hosts with an AWS role (IRSA, ECS, EC2) |
+
+Providers can be mixed per tenant in one tenants file. The secret-manager
+providers are tenants-file only (see the `AZURE_CLIENT_ID` note under
+[Keeping the certificate in a secret manager](#keeping-the-certificate-in-a-secret-manager-optional)).
+[`tenants.cloud.example.json`](./tenants.cloud.example.json) shows all
+three side by side, and [`.env.example`](./.env.example) has a commented
+stanza for every variable.
+
 ### Single tenant (development / small deployments)
 
 Set these environment variables (or a `.env` file based on
@@ -446,6 +486,37 @@ shell's `PATH`, so a bare `"mcp-defender-xdr"` will not resolve.
 }
 ```
 
+### Claude Desktop over HTTP
+
+Claude Desktop's `claude_desktop_config.json` launches local commands,
+so reaching a remote HTTP server needs a stdio-to-HTTP bridge such as
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote). A bridge sends
+whatever header it was started with. Mint the token in a wrapper script,
+so every launch gets a fresh one:
+
+```json
+{
+  "mcpServers": {
+    "defender-xdr-remote": {
+      "command": "/absolute/path/to/defender-xdr-remote.sh"
+    }
+  }
+}
+```
+
+```sh
+#!/bin/sh
+# defender-xdr-remote.sh
+TOKEN="$(your-token-command --audience mcp-defender-xdr://soc-prod)"
+exec npx -y mcp-remote https://mcp.example.com/mcp --header "Authorization: Bearer ${TOKEN}"
+```
+
+The bridge can't refresh the token, so the session stops working when the
+token expires (15 minutes by default) and Claude Desktop must be
+restarted. That makes stdio the better fit for Claude Desktop. Claude Code
+doesn't have this problem: it re-runs `headersHelper` on reconnect (see
+below).
+
 ---
 
 ## HTTP transport (remote clients)
@@ -494,7 +565,10 @@ open a second one. Clients should therefore mint a token per connection,
 not reuse one from a static config.
 
 **Claude Code** does this with `headersHelper`, a command that prints the
-headers as JSON and runs on every connection:
+headers as JSON. Claude Code runs it whenever it connects. When a token
+expires mid-session, the server answers `401`, Claude Code reconnects, the
+helper mints a new token, and the next tool call succeeds without user
+action. This was verified against Claude Code with a 60-second TTL:
 
 ```json
 {

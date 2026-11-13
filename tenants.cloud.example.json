@@ -1,0 +1,36 @@
+{
+  "_comment": "Example tenants file mixing all three credential providers. Copy, edit, chmod 0600. JSON has no comments, so remove this key or leave it: unknown top-level keys are ignored.",
+  "default": "contoso",
+  "default_quota": {
+    "requests_per_minute": 30,
+    "rows_per_minute": 50000
+  },
+  "tenants": {
+    "contoso": {
+      "provider": "keyvault",
+      "tenant_id": "11111111-1111-1111-1111-111111111111",
+      "client_id": "22222222-2222-2222-2222-222222222222",
+      "vault_url": "https://contoso-secops.vault.azure.net/",
+      "cert_secret_name": "defender-xdr-mcp",
+      "keyvault_identity_client_id": "55555555-5555-5555-5555-555555555555"
+    },
+    "fabrikam": {
+      "provider": "aws-secretsmanager",
+      "tenant_id": "33333333-3333-3333-3333-333333333333",
+      "client_id": "44444444-4444-4444-4444-444444444444",
+      "region": "us-east-1",
+      "secret_id": "arn:aws:secretsmanager:us-east-1:123456789012:secret:defender/fabrikam-AbCdEf",
+      "passphrase_secret_id": "defender/fabrikam-passphrase",
+      "quota": {
+        "requests_per_minute": 10
+      }
+    },
+    "lab": {
+      "tenant_id": "66666666-6666-6666-6666-666666666666",
+      "client_id": "77777777-7777-7777-7777-777777777777",
+      "cert_path": "/secrets/lab.pfx",
+      "cert_passphrase_env": "LAB_CERT_PASS",
+      "quota": null
+    }
+  }
+}

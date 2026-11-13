@@ -38,14 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   certificate, so the PFX never touches the host filesystem. They accept raw
   PKCS#12, base64 PKCS#12, or a PEM key+certificate bundle.
 
-### Changed
-
-- `msal` floor raised to 1.35.0, the first release that derives a SHA-256
-  thumbprint (PS256) from an in-memory `public_certificate`.
-- `cryptography` is now a declared dependency (it was already installed
-  transitively through `msal`).
-- `AzureCredentials.cert_path` is optional; exactly one of `cert_path` or
-  the new `certificate` must be set.
 - Streamable HTTP transport (#2): `--transport http` or
   `MCP_DEFENDER_XDR_TRANSPORT=http` serves MCP at `/mcp` (default
   `127.0.0.1:8765`). stdio remains the default. It can serve TLS directly,
@@ -61,7 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every audit record now includes `transport`.
 - THREAT_MODEL.md: adversary A4 (network attacker) and T8 (token
   validation).
+- Deployment guide (#6): a decision table for choosing a transport and
+  credential provider, client configs for each transport,
+  `tenants.cloud.example.json`, and `.env.example` stanzas for every new
+  variable.
 
+### Changed
+
+- `msal` floor raised to 1.35.0, the first release that derives a SHA-256
+  thumbprint (PS256) from an in-memory `public_certificate`.
+- `cryptography` is now a declared dependency (it was already installed
+  transitively through `msal`).
+- `AzureCredentials.cert_path` is optional; exactly one of `cert_path` or
+  the new `certificate` must be set.
 ## [0.2.0] - 2026-09-04
 
 Supersedes the 0.1.1 version bump, which was developed but never tagged or
