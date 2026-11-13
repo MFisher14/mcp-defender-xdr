@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every audit record now includes `transport`.
 - THREAT_MODEL.md: adversary A4 (network attacker) and T8 (token
   validation).
+- README screenshots of real Claude Code sessions against fixture mode, with
+  the recording and rendering scripts in `docs/screenshots/`.
 - Deployment guide (#6): a decision table for choosing a transport and
   credential provider, client configs for each transport,
   `tenants.cloud.example.json`, and `.env.example` stanzas for every new

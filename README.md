@@ -31,6 +31,37 @@ compare on those axes and pick whichever suits your environment.
 
 ---
 
+## See it in Claude
+
+Real Claude Code sessions against the server in [offline fixture
+mode](#quickstart-offline). The data is synthetic, as the footer of each
+image and Claude's own answers point out. See
+[`docs/screenshots/`](./docs/screenshots/README.md) for how they were
+recorded.
+
+**Triage:** `list_alerts`, then `get_incident`.
+
+![Claude Code listing new High-severity alerts and summarizing incident INC-4471](./docs/screenshots/triage-incident.png)
+
+**Pivot to the device:** `get_device_timeline` reconstructs the attack chain.
+
+![Claude Code walking through a device timeline from phishing attachment to LSASS access](./docs/screenshots/device-timeline.png)
+
+<details>
+<summary><b>More:</b> indicator lookups and a Sentinel hunting query</summary>
+
+**Indicators of compromise:** `query_threat_intelligence` for a hash, a domain, and an IP.
+
+![Claude Code checking a hash, a domain, and an IP against Defender](./docs/screenshots/threat-intelligence.png)
+
+**Microsoft Sentinel:** `list_sentinel_hunting_queries`, then `query_sentinel` by saved query.
+
+![Claude Code listing saved Sentinel hunting queries and running the beaconing hunt](./docs/screenshots/sentinel-hunting.png)
+
+</details>
+
+---
+
 ## Quickstart (offline)
 
 **Evaluate this server with no Azure tenant, no App Registration, and no
