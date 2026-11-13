@@ -332,6 +332,72 @@ the rest. A quota caps each tenant over a rolling 60-second window:
 - State is held in process memory. It resets on restart and is not shared
   between server processes.
 
+#### Keeping the certificate in a secret manager (optional)
+
+Instead of `cert_path`, a tenant can name a secret in **Azure Key Vault**
+or **AWS Secrets Manager**. The server fetches it once at startup with the
+host's cloud identity, parses it in memory, and never writes the PFX to
+disk. Install the matching extra:
+
+```bash
+uv pip install -e ".[keyvault]"            # azure-identity + azure-keyvault-secrets
+uv pip install -e ".[aws-secretsmanager]"  # boto3
+```
+
+```json
+{
+  "default": "contoso",
+  "tenants": {
+    "contoso": {
+      "provider": "keyvault",
+      "tenant_id": "11111111-1111-1111-1111-111111111111",
+      "client_id": "22222222-2222-2222-2222-222222222222",
+      "vault_url": "https://contoso-secops.vault.azure.net/",
+      "cert_secret_name": "defender-xdr-mcp"
+    },
+    "fabrikam": {
+      "provider": "aws-secretsmanager",
+      "tenant_id": "33333333-3333-3333-3333-333333333333",
+      "client_id": "44444444-4444-4444-4444-444444444444",
+      "region": "us-east-1",
+      "secret_id": "arn:aws:secretsmanager:us-east-1:123456789012:secret:defender/fabrikam-AbCdEf"
+    }
+  }
+}
+```
+
+| Field | Provider | Notes |
+| ----- | -------- | ----- |
+| `provider` | both | `file` (the default when omitted), `keyvault`, or `aws-secretsmanager`. Providers can be mixed per tenant. |
+| `vault_url`, `cert_secret_name` | keyvault | For a Key Vault **certificate**, use the certificate's name: its backing secret holds the PFX. |
+| `cert_secret_version` | keyvault | Optional 32-hex version ID. Default is the current version. |
+| `passphrase_secret_name` | keyvault | Optional secret holding the PFX passphrase. |
+| `keyvault_identity_client_id` | keyvault | Optional client ID of the user-assigned managed or workload identity to use. |
+| `region`, `secret_id` | aws-secretsmanager | `secret_id` is a name or full ARN. Uses the `AWSCURRENT` version. |
+| `passphrase_secret_id` | aws-secretsmanager | Optional secret holding the PFX passphrase. |
+| `cert_passphrase_env` | both | Alternative to a passphrase secret: an environment variable name. |
+
+**Secret contents.** A secret may hold raw PKCS#12 bytes (AWS
+`SecretBinary`), base64-encoded PKCS#12 (a Key Vault certificate's backing
+secret, or `base64 -i app-cert.pfx` stored as a string), or PEM text
+containing both the private key and the certificate.
+
+**Cloud identity.** Key Vault uses `DefaultAzureCredential`: an
+environment service principal, workload identity, managed identity, or a
+developer sign-in such as `az login`. The identity needs the *Key Vault
+Secrets User* role, or `get` permission on secrets. AWS uses the standard
+boto3 chain (environment, profile/SSO, IRSA, ECS task role, instance
+profile) and needs `secretsmanager:GetSecretValue`, plus `kms:Decrypt` if
+the secret uses a customer-managed key.
+
+> **`AZURE_CLIENT_ID` gotcha.** `DefaultAzureCredential` reads
+> `AZURE_CLIENT_ID` as the managed or workload identity to use. If that
+> variable holds the *Defender* App Registration's ID, Key Vault sign-in
+> fails. Leave it unset in tenants-file mode, or set
+> `keyvault_identity_client_id`. For the same reason, secret-store
+> providers are available only through the tenants file, not the
+> single-tenant `AZURE_*` variables; a one-tenant tenants file works fine.
+
 ---
 
 ## Claude Desktop / Claude Code integration

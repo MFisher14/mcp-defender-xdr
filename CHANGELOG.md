@@ -27,6 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in its own fan-out slot while sibling tenants are unaffected. Each
   decision is audited as `quota-decision`. State is in-process only.
 - `quota_exceeded` error code (`QuotaExceededError`).
+- Azure Key Vault credential provider (#3): `"provider": "keyvault"` in a
+  tenants-file entry reads the PFX, and optionally its passphrase, from Key
+  Vault using `DefaultAzureCredential` (workload identity, managed identity,
+  or an environment service principal). Extra: `[keyvault]`.
+- AWS Secrets Manager credential provider (#4): `"provider":
+  "aws-secretsmanager"` reads the same material using the standard AWS
+  credential chain. Extra: `[aws-secretsmanager]`.
+- Both parse the certificate in memory and pass MSAL a PEM key plus
+  certificate, so the PFX never touches the host filesystem. They accept raw
+  PKCS#12, base64 PKCS#12, or a PEM key+certificate bundle.
+
+### Changed
+
+- `msal` floor raised to 1.35.0, the first release that derives a SHA-256
+  thumbprint (PS256) from an in-memory `public_certificate`.
+- `cryptography` is now a declared dependency (it was already installed
+  transitively through `msal`).
+- `AzureCredentials.cert_path` is optional; exactly one of `cert_path` or
+  the new `certificate` must be set.
 
 ## [0.2.0] - 2026-09-04
 
