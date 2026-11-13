@@ -4,6 +4,17 @@ All notable changes to `mcp-defender-xdr` are recorded in this file. The
 format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Per-tenant rolling-window quotas (#11). The tenants file accepts
+  `default_quota` and per-tenant `quota` objects with `requests_per_minute`
+  and `rows_per_minute`. A tenant over quota gets a `quota_exceeded` error
+  in its own fan-out slot while sibling tenants are unaffected. Each
+  decision is audited as `quota-decision`. State is in-process only.
+- `quota_exceeded` error code (`QuotaExceededError`).
+
 ## [0.2.0] - 2026-09-04
 
 Supersedes the 0.1.1 version bump, which was developed but never tagged or

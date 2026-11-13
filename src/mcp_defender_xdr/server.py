@@ -23,6 +23,7 @@ from .fixtures import (
     FixtureStore,
     fixture_mode_requested,
 )
+from .quota import QuotaTracker
 from .tool_context import ToolContext
 from .tools import advanced_hunting, alerts, incidents
 
@@ -113,6 +114,10 @@ def build_server(
 ) -> Server:
     """Build the MCP server against either live credentials or offline fixtures."""
     server: Server = Server(ServerName, version=__version__)
+    # One tracker for the life of the process, so quota windows span calls.
+    quota_tracker = QuotaTracker(token_manager.quotas()) if token_manager is not None else None
+    if quota_tracker is not None and not quota_tracker.enabled:
+        quota_tracker = None
 
     @server.list_tools()  # type: ignore[no-untyped-call,untyped-decorator]
     async def _list_tools() -> list[mcp_types.Tool]:
@@ -124,7 +129,7 @@ def build_server(
         if handler is None:
             audit_error("tool-unknown", tool=name)
             return _error_result(ErrorCode.INVALID_INPUT, f"Unknown tool: {name}")
-        async with ToolContext(token_manager, fixtures=fixtures) as ctx:
+        async with ToolContext(token_manager, fixtures=fixtures, quotas=quota_tracker) as ctx:
             return await _dispatch(handler, ctx, arguments, name)
 
     return server

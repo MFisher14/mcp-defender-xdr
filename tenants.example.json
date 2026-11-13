@@ -1,5 +1,9 @@
 {
   "default": "contoso",
+  "default_quota": {
+    "requests_per_minute": 30,
+    "rows_per_minute": 50000
+  },
   "tenants": {
     "contoso": {
       "tenant_id": "11111111-1111-1111-1111-111111111111",
@@ -10,7 +14,10 @@
     "fabrikam": {
       "tenant_id": "33333333-3333-3333-3333-333333333333",
       "client_id": "44444444-4444-4444-4444-444444444444",
-      "cert_path": "/secrets/fabrikam.pfx"
+      "cert_path": "/secrets/fabrikam.pfx",
+      "quota": {
+        "requests_per_minute": 10
+      }
     }
   }
 }
