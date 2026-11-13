@@ -53,6 +53,24 @@ INPUT_SCHEMA: dict[str, Any] = {
 _ENDPOINT = "/api/advancedqueries/run"
 
 
+async def run_hunting_query(
+    client: DefenderApi, query: str, timespan: str
+) -> tuple[list[Any], list[dict[str, Any]]]:
+    """POST a KQL query to Advanced Hunting and return ``(schema, rows)``.
+
+    Shared by every tool that is implemented on top of Advanced Hunting, so
+    they all get identical request shape and defensive response parsing.
+    """
+    response = await client.post(_ENDPOINT, json={"Query": query, "Timespan": timespan})
+    schema = response.get("Schema", [])
+    results = response.get("Results", [])
+    if not isinstance(schema, list):
+        schema = []
+    if not isinstance(results, list):
+        results = []
+    return schema, [row for row in results if isinstance(row, dict)]
+
+
 async def run(ctx: ToolContext, raw_params: dict[str, Any]) -> dict[str, Any]:
     params = parse_input(AdvancedHuntingInput, raw_params)
     targets = resolve_targets(ctx, params.tenant)
@@ -64,14 +82,7 @@ async def run(ctx: ToolContext, raw_params: dict[str, Any]) -> dict[str, Any]:
     }
 
     async def _call(client: DefenderApi) -> dict[str, Any]:
-        body = {"Query": params.query, "Timespan": params.timespan}
-        response = await client.post(_ENDPOINT, json=body)
-        schema = response.get("Schema", [])
-        results = response.get("Results", [])
-        if not isinstance(schema, list):
-            schema = []
-        if not isinstance(results, list):
-            results = []
+        schema, results = await run_hunting_query(client, params.query, params.timespan)
         return {
             "schema": schema,
             "rows": results,

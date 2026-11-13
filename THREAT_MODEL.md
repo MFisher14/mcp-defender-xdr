@@ -80,6 +80,17 @@ upstream rate limit.
    rate limit, the server's exponential backoff, and the `max_retries`
    cap (see T6).
 
+6. **Server-built queries for the investigation tools.**
+   `get_device_timeline`, `investigate_user`, and
+   `query_threat_intelligence` take no KQL at all. Each input is checked
+   against a strict pattern (device IDs are `[A-Za-z0-9-]`, SIDs are
+   numeric, IPs are parsed by `ipaddress`, hashes are hex, URLs exclude
+   whitespace, quotes, and backslashes), then emitted through
+   `kql.string_literal` / `kql.datetime_literal`, which escape quotes and
+   backslashes and reject control characters. A KQL injection through
+   these tools needs both layers to fail. Their windows are capped at 30
+   days and their row counts at 1,000, which bounds their cost too.
+
 **Residual risk.** A read-only query can still be expensive on the
 Defender side; the cost surfaces as 429s, not as compromise.
 
@@ -144,7 +155,12 @@ permissions, silently expanding the server's blast radius.
 1. **Three named endpoints.** Every HTTP call in the codebase routes
    through `DefenderClient.get/post` against one of three documented
    paths (`/api/advancedqueries/run`, `/api/incidents/{id}`,
-   `/api/alerts`). A code reviewer can audit this in one `grep`.
+   `/api/alerts`). A code reviewer can audit this in one `grep`. The
+   investigation tools added later reuse `/api/advancedqueries/run`
+   rather than adding endpoints. In particular `query_threat_intelligence`
+   deliberately does **not** call `GET /api/indicators` or the
+   file/domain related-alert endpoints, because those require
+   `Ti.ReadWrite` and `Alert.ReadWrite.All`, which are write scopes.
 2. **No wildcard scope.** OAuth scope is the static
    `https://api.securitycenter.microsoft.com/.default`. The server does
    not request `*.ReadWrite.*` or `*.All` scopes beyond what's listed in

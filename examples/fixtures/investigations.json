@@ -1,0 +1,982 @@
+{
+  "_comment": "SYNTHETIC FIXTURE DATA. Not from a live Defender tenant. Recorded POST /api/advancedqueries/run responses for the server-built investigation queries, keyed by view (the tag on the query's first line) and then by subject (device ID, UPN/SID, or indicator, lowercased). An unrecorded subject returns an empty result set, mirroring an Advanced Hunting query that matches nothing. Hosts and accounts are invented; IPs are RFC 5737 documentation ranges.",
+  "views": {
+    "get_device_timeline": {
+      "fixture0000000000000000000000000000a014": {
+        "Schema": [
+          {
+            "Name": "Timestamp",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "EventType",
+            "Type": "String"
+          },
+          {
+            "Name": "ActionType",
+            "Type": "String"
+          },
+          {
+            "Name": "DeviceName",
+            "Type": "String"
+          },
+          {
+            "Name": "RemoteIP",
+            "Type": "String"
+          },
+          {
+            "Name": "RemotePort",
+            "Type": "String"
+          },
+          {
+            "Name": "InitiatingProcessFileName",
+            "Type": "String"
+          },
+          {
+            "Name": "ReportId",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountName",
+            "Type": "String"
+          },
+          {
+            "Name": "FileName",
+            "Type": "String"
+          },
+          {
+            "Name": "FolderPath",
+            "Type": "String"
+          },
+          {
+            "Name": "InitiatingProcessCommandLine",
+            "Type": "String"
+          },
+          {
+            "Name": "RegistryKey",
+            "Type": "String"
+          },
+          {
+            "Name": "RegistryValueName",
+            "Type": "String"
+          },
+          {
+            "Name": "RegistryValueData",
+            "Type": "String"
+          },
+          {
+            "Name": "ProcessCommandLine",
+            "Type": "String"
+          },
+          {
+            "Name": "SHA256",
+            "Type": "String"
+          },
+          {
+            "Name": "RemoteUrl",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Timestamp": "2026-08-31T02:33:10.2210000Z",
+            "EventType": "network",
+            "ActionType": "ConnectionSuccess",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "RemoteIP": "198.51.100.7",
+            "RemotePort": "8443",
+            "InitiatingProcessFileName": "rundll32.exe",
+            "ReportId": "200008"
+          },
+          {
+            "Timestamp": "2026-08-31T02:31:22.9050000Z",
+            "EventType": "other",
+            "ActionType": "OpenProcessApiCall",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "AccountName": "j.doe.fixture",
+            "FileName": "lsass.exe",
+            "FolderPath": "C:\\Windows\\System32\\lsass.exe",
+            "InitiatingProcessFileName": "rundll32.exe",
+            "InitiatingProcessCommandLine": "rundll32.exe C:\\Users\\Public\\fixture-payload.dll,EntryPoint",
+            "ReportId": "200007"
+          },
+          {
+            "Timestamp": "2026-08-31T02:16:40.6020000Z",
+            "EventType": "network",
+            "ActionType": "ConnectionSuccess",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "RemoteIP": "198.51.100.7",
+            "RemotePort": "8443",
+            "InitiatingProcessFileName": "rundll32.exe",
+            "ReportId": "200006"
+          },
+          {
+            "Timestamp": "2026-08-31T02:15:03.1180000Z",
+            "EventType": "registry",
+            "ActionType": "RegistryValueSet",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "RegistryKey": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "RegistryValueName": "FixtureUpdater",
+            "RegistryValueData": "rundll32.exe C:\\Users\\Public\\fixture-payload.dll,EntryPoint",
+            "InitiatingProcessFileName": "rundll32.exe",
+            "ReportId": "200005"
+          },
+          {
+            "Timestamp": "2026-08-31T02:14:52.8870000Z",
+            "EventType": "process",
+            "ActionType": "ProcessCreated",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "AccountName": "j.doe.fixture",
+            "FileName": "rundll32.exe",
+            "ProcessCommandLine": "rundll32.exe C:\\Users\\Public\\fixture-payload.dll,EntryPoint",
+            "InitiatingProcessFileName": "powershell.exe",
+            "ReportId": "100002"
+          },
+          {
+            "Timestamp": "2026-08-31T02:14:31.4400000Z",
+            "EventType": "file",
+            "ActionType": "FileCreated",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "FileName": "fixture-payload.dll",
+            "FolderPath": "C:\\Users\\Public\\fixture-payload.dll",
+            "SHA256": "0000000000000000000000000000000000000000000000000000000000000001",
+            "InitiatingProcessFileName": "powershell.exe",
+            "ReportId": "200004"
+          },
+          {
+            "Timestamp": "2026-08-31T02:14:09.0120000Z",
+            "EventType": "network",
+            "ActionType": "ConnectionSuccess",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "RemoteIP": "192.0.2.44",
+            "RemotePort": "443",
+            "RemoteUrl": "cdn-fixture.example.com",
+            "InitiatingProcessFileName": "powershell.exe",
+            "ReportId": "200003"
+          },
+          {
+            "Timestamp": "2026-08-31T02:14:07.3310000Z",
+            "EventType": "process",
+            "ActionType": "ProcessCreated",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "AccountName": "j.doe.fixture",
+            "FileName": "powershell.exe",
+            "ProcessCommandLine": "powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAZgBpAHgAdAB1AHIAZQAnAA==",
+            "InitiatingProcessFileName": "winword.exe",
+            "ReportId": "100001"
+          },
+          {
+            "Timestamp": "2026-08-31T02:14:02.7710000Z",
+            "EventType": "process",
+            "ActionType": "ProcessCreated",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "AccountName": "j.doe.fixture",
+            "FileName": "winword.exe",
+            "ProcessCommandLine": "\"WINWORD.EXE\" /n \"C:\\Users\\j.doe.fixture\\Downloads\\Invoice_Q3.docm\"",
+            "InitiatingProcessFileName": "explorer.exe",
+            "ReportId": "200002"
+          },
+          {
+            "Timestamp": "2026-08-31T02:13:41.2050000Z",
+            "EventType": "file",
+            "ActionType": "FileCreated",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "FileName": "Invoice_Q3.docm",
+            "FolderPath": "C:\\Users\\j.doe.fixture\\Downloads\\Invoice_Q3.docm",
+            "SHA256": "0000000000000000000000000000000000000000000000000000000000000002",
+            "InitiatingProcessFileName": "outlook.exe",
+            "ReportId": "200001"
+          }
+        ]
+      }
+    },
+    "investigate_user": {
+      "j.doe.fixture@example.com": {
+        "Schema": [
+          {
+            "Name": "Timestamp",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "SignalType",
+            "Type": "String"
+          },
+          {
+            "Name": "ActionType",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountName",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountDomain",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountSid",
+            "Type": "String"
+          },
+          {
+            "Name": "DeviceName",
+            "Type": "String"
+          },
+          {
+            "Name": "LogonType",
+            "Type": "String"
+          },
+          {
+            "Name": "RemoteIP",
+            "Type": "String"
+          },
+          {
+            "Name": "ReportId",
+            "Type": "String"
+          },
+          {
+            "Name": "SenderFromAddress",
+            "Type": "String"
+          },
+          {
+            "Name": "RecipientEmailAddress",
+            "Type": "String"
+          },
+          {
+            "Name": "Subject",
+            "Type": "String"
+          },
+          {
+            "Name": "EmailDirection",
+            "Type": "String"
+          },
+          {
+            "Name": "DeliveryAction",
+            "Type": "String"
+          },
+          {
+            "Name": "NetworkMessageId",
+            "Type": "String"
+          },
+          {
+            "Name": "SenderIPv4",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountUpn",
+            "Type": "String"
+          },
+          {
+            "Name": "Protocol",
+            "Type": "String"
+          },
+          {
+            "Name": "IPAddress",
+            "Type": "String"
+          },
+          {
+            "Name": "Location",
+            "Type": "String"
+          },
+          {
+            "Name": "Application",
+            "Type": "String"
+          },
+          {
+            "Name": "FailureReason",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Timestamp": "2026-08-31T03:12:44.0000000Z",
+            "SignalType": "device",
+            "ActionType": "LogonSuccess",
+            "AccountName": "j.doe.fixture",
+            "AccountDomain": "corp",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "DeviceName": "srv-fixture-db02.corp.example.com",
+            "LogonType": "Network",
+            "RemoteIP": "192.0.2.21",
+            "ReportId": "300002"
+          },
+          {
+            "Timestamp": "2026-08-31T02:20:15.0000000Z",
+            "SignalType": "mailbox",
+            "SenderFromAddress": "j.doe.fixture@example.com",
+            "RecipientEmailAddress": "finance.fixture@example.com",
+            "Subject": "RE: Invoice Q3 - action required",
+            "EmailDirection": "Intra-org",
+            "DeliveryAction": "Delivered",
+            "NetworkMessageId": "fixture-msg-0002"
+          },
+          {
+            "Timestamp": "2026-08-31T01:58:12.0000000Z",
+            "SignalType": "mailbox",
+            "SenderFromAddress": "invoices@billing-fixture.example.com",
+            "RecipientEmailAddress": "j.doe.fixture@example.com",
+            "SenderIPv4": "203.0.113.77",
+            "Subject": "Invoice Q3 - action required",
+            "EmailDirection": "Inbound",
+            "DeliveryAction": "Delivered",
+            "NetworkMessageId": "fixture-msg-0001"
+          },
+          {
+            "Timestamp": "2026-08-31T01:40:05.0000000Z",
+            "SignalType": "device",
+            "ActionType": "LogonSuccess",
+            "AccountName": "j.doe.fixture",
+            "AccountDomain": "corp",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "LogonType": "Interactive",
+            "ReportId": "300001"
+          },
+          {
+            "Timestamp": "2026-08-31T01:39:58.0000000Z",
+            "SignalType": "sign_in",
+            "ActionType": "LogonSuccess",
+            "AccountUpn": "j.doe.fixture@example.com",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "LogonType": "Interactive",
+            "Protocol": "Kerberos",
+            "IPAddress": "192.0.2.21",
+            "Location": "HQ (fixture)"
+          },
+          {
+            "Timestamp": "2026-08-30T22:51:10.0000000Z",
+            "SignalType": "sign_in",
+            "ActionType": "LogonSuccess",
+            "AccountUpn": "j.doe.fixture@example.com",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "Application": "Office 365",
+            "LogonType": "Cloud",
+            "IPAddress": "203.0.113.88",
+            "Location": "Unfamiliar location (fixture)"
+          },
+          {
+            "Timestamp": "2026-08-30T22:49:31.0000000Z",
+            "SignalType": "sign_in",
+            "ActionType": "LogonFailed",
+            "AccountUpn": "j.doe.fixture@example.com",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "Application": "Office 365",
+            "LogonType": "Cloud",
+            "FailureReason": "InvalidPassword",
+            "IPAddress": "203.0.113.88",
+            "Location": "Unfamiliar location (fixture)"
+          }
+        ]
+      },
+      "s-1-5-21-1000000000-2000000000-3000000000-1104": {
+        "Schema": [
+          {
+            "Name": "Timestamp",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "SignalType",
+            "Type": "String"
+          },
+          {
+            "Name": "ActionType",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountName",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountDomain",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountSid",
+            "Type": "String"
+          },
+          {
+            "Name": "DeviceName",
+            "Type": "String"
+          },
+          {
+            "Name": "LogonType",
+            "Type": "String"
+          },
+          {
+            "Name": "RemoteIP",
+            "Type": "String"
+          },
+          {
+            "Name": "ReportId",
+            "Type": "String"
+          },
+          {
+            "Name": "SenderFromAddress",
+            "Type": "String"
+          },
+          {
+            "Name": "RecipientEmailAddress",
+            "Type": "String"
+          },
+          {
+            "Name": "Subject",
+            "Type": "String"
+          },
+          {
+            "Name": "EmailDirection",
+            "Type": "String"
+          },
+          {
+            "Name": "DeliveryAction",
+            "Type": "String"
+          },
+          {
+            "Name": "NetworkMessageId",
+            "Type": "String"
+          },
+          {
+            "Name": "SenderIPv4",
+            "Type": "String"
+          },
+          {
+            "Name": "AccountUpn",
+            "Type": "String"
+          },
+          {
+            "Name": "Protocol",
+            "Type": "String"
+          },
+          {
+            "Name": "IPAddress",
+            "Type": "String"
+          },
+          {
+            "Name": "Location",
+            "Type": "String"
+          },
+          {
+            "Name": "Application",
+            "Type": "String"
+          },
+          {
+            "Name": "FailureReason",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Timestamp": "2026-08-31T03:12:44.0000000Z",
+            "SignalType": "device",
+            "ActionType": "LogonSuccess",
+            "AccountName": "j.doe.fixture",
+            "AccountDomain": "corp",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "DeviceName": "srv-fixture-db02.corp.example.com",
+            "LogonType": "Network",
+            "RemoteIP": "192.0.2.21",
+            "ReportId": "300002"
+          },
+          {
+            "Timestamp": "2026-08-31T02:20:15.0000000Z",
+            "SignalType": "mailbox",
+            "SenderFromAddress": "j.doe.fixture@example.com",
+            "RecipientEmailAddress": "finance.fixture@example.com",
+            "Subject": "RE: Invoice Q3 - action required",
+            "EmailDirection": "Intra-org",
+            "DeliveryAction": "Delivered",
+            "NetworkMessageId": "fixture-msg-0002"
+          },
+          {
+            "Timestamp": "2026-08-31T01:58:12.0000000Z",
+            "SignalType": "mailbox",
+            "SenderFromAddress": "invoices@billing-fixture.example.com",
+            "RecipientEmailAddress": "j.doe.fixture@example.com",
+            "SenderIPv4": "203.0.113.77",
+            "Subject": "Invoice Q3 - action required",
+            "EmailDirection": "Inbound",
+            "DeliveryAction": "Delivered",
+            "NetworkMessageId": "fixture-msg-0001"
+          },
+          {
+            "Timestamp": "2026-08-31T01:40:05.0000000Z",
+            "SignalType": "device",
+            "ActionType": "LogonSuccess",
+            "AccountName": "j.doe.fixture",
+            "AccountDomain": "corp",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "LogonType": "Interactive",
+            "ReportId": "300001"
+          },
+          {
+            "Timestamp": "2026-08-31T01:39:58.0000000Z",
+            "SignalType": "sign_in",
+            "ActionType": "LogonSuccess",
+            "AccountUpn": "j.doe.fixture@example.com",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "DeviceName": "wkstn-fixture-014.corp.example.com",
+            "LogonType": "Interactive",
+            "Protocol": "Kerberos",
+            "IPAddress": "192.0.2.21",
+            "Location": "HQ (fixture)"
+          },
+          {
+            "Timestamp": "2026-08-30T22:51:10.0000000Z",
+            "SignalType": "sign_in",
+            "ActionType": "LogonSuccess",
+            "AccountUpn": "j.doe.fixture@example.com",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "Application": "Office 365",
+            "LogonType": "Cloud",
+            "IPAddress": "203.0.113.88",
+            "Location": "Unfamiliar location (fixture)"
+          },
+          {
+            "Timestamp": "2026-08-30T22:49:31.0000000Z",
+            "SignalType": "sign_in",
+            "ActionType": "LogonFailed",
+            "AccountUpn": "j.doe.fixture@example.com",
+            "AccountSid": "S-1-5-21-1000000000-2000000000-3000000000-1104",
+            "Application": "Office 365",
+            "LogonType": "Cloud",
+            "FailureReason": "InvalidPassword",
+            "IPAddress": "203.0.113.88",
+            "Location": "Unfamiliar location (fixture)"
+          }
+        ]
+      }
+    },
+    "query_threat_intelligence/alerts": {
+      "192.0.2.44": {
+        "Schema": [
+          {
+            "Name": "AlertId",
+            "Type": "String"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Title",
+            "Type": "String"
+          },
+          {
+            "Name": "Severity",
+            "Type": "String"
+          },
+          {
+            "Name": "Categories",
+            "Type": "String"
+          },
+          {
+            "Name": "AttackTechniques",
+            "Type": "String"
+          },
+          {
+            "Name": "DetectionSource",
+            "Type": "String"
+          },
+          {
+            "Name": "ServiceSource",
+            "Type": "String"
+          },
+          {
+            "Name": "EvidenceRoles",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Devices",
+            "Type": "Dynamic"
+          }
+        ],
+        "Results": [
+          {
+            "AlertId": "da-fixture-0001",
+            "FirstSeen": "2026-08-31T02:14:07.0000000Z",
+            "LastSeen": "2026-08-31T02:14:59.0000000Z",
+            "Title": "Suspicious PowerShell command line",
+            "Severity": "High",
+            "Categories": "[\"Execution\"]",
+            "AttackTechniques": "[\"PowerShell (T1059.001)\"]",
+            "DetectionSource": "EDR",
+            "ServiceSource": "Microsoft Defender for Endpoint",
+            "EvidenceRoles": [
+              "Related"
+            ],
+            "Devices": [
+              "wkstn-fixture-014.corp.example.com"
+            ]
+          }
+        ]
+      },
+      "198.51.100.7": {
+        "Schema": [
+          {
+            "Name": "AlertId",
+            "Type": "String"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Title",
+            "Type": "String"
+          },
+          {
+            "Name": "Severity",
+            "Type": "String"
+          },
+          {
+            "Name": "Categories",
+            "Type": "String"
+          },
+          {
+            "Name": "AttackTechniques",
+            "Type": "String"
+          },
+          {
+            "Name": "DetectionSource",
+            "Type": "String"
+          },
+          {
+            "Name": "ServiceSource",
+            "Type": "String"
+          },
+          {
+            "Name": "EvidenceRoles",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Devices",
+            "Type": "Dynamic"
+          }
+        ],
+        "Results": [
+          {
+            "AlertId": "da-fixture-0002",
+            "FirstSeen": "2026-08-31T02:31:22.0000000Z",
+            "LastSeen": "2026-08-31T02:33:10.0000000Z",
+            "Title": "Suspicious credential dump from LSASS",
+            "Severity": "High",
+            "Categories": "[\"CredentialAccess\"]",
+            "AttackTechniques": "[\"LSASS Memory (T1003.001)\"]",
+            "DetectionSource": "EDR",
+            "ServiceSource": "Microsoft Defender for Endpoint",
+            "EvidenceRoles": [
+              "Related"
+            ],
+            "Devices": [
+              "wkstn-fixture-014.corp.example.com"
+            ]
+          }
+        ]
+      },
+      "updates.fixture.example.com": {
+        "Schema": [
+          {
+            "Name": "AlertId",
+            "Type": "String"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Title",
+            "Type": "String"
+          },
+          {
+            "Name": "Severity",
+            "Type": "String"
+          },
+          {
+            "Name": "Categories",
+            "Type": "String"
+          },
+          {
+            "Name": "AttackTechniques",
+            "Type": "String"
+          },
+          {
+            "Name": "DetectionSource",
+            "Type": "String"
+          },
+          {
+            "Name": "ServiceSource",
+            "Type": "String"
+          },
+          {
+            "Name": "EvidenceRoles",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Devices",
+            "Type": "Dynamic"
+          }
+        ],
+        "Results": [
+          {
+            "AlertId": "da-fixture-0004",
+            "FirstSeen": "2026-08-31T03:07:44.0000000Z",
+            "LastSeen": "2026-08-31T03:07:46.0000000Z",
+            "Title": "Outbound connection to a low-reputation host",
+            "Severity": "Medium",
+            "Categories": "[\"CommandAndControl\"]",
+            "AttackTechniques": "[\"Web Protocols (T1071.001)\"]",
+            "DetectionSource": "EDR",
+            "ServiceSource": "Microsoft Defender for Endpoint",
+            "EvidenceRoles": [
+              "Related"
+            ],
+            "Devices": [
+              "lt-fixture-233.corp.example.com"
+            ]
+          }
+        ]
+      },
+      "0000000000000000000000000000000000000000000000000000000000000001": {
+        "Schema": [
+          {
+            "Name": "AlertId",
+            "Type": "String"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Title",
+            "Type": "String"
+          },
+          {
+            "Name": "Severity",
+            "Type": "String"
+          },
+          {
+            "Name": "Categories",
+            "Type": "String"
+          },
+          {
+            "Name": "AttackTechniques",
+            "Type": "String"
+          },
+          {
+            "Name": "DetectionSource",
+            "Type": "String"
+          },
+          {
+            "Name": "ServiceSource",
+            "Type": "String"
+          },
+          {
+            "Name": "EvidenceRoles",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Devices",
+            "Type": "Dynamic"
+          }
+        ],
+        "Results": [
+          {
+            "AlertId": "da-fixture-0002",
+            "FirstSeen": "2026-08-31T02:31:22.0000000Z",
+            "LastSeen": "2026-08-31T02:33:10.0000000Z",
+            "Title": "Suspicious credential dump from LSASS",
+            "Severity": "High",
+            "Categories": "[\"CredentialAccess\"]",
+            "AttackTechniques": "[\"LSASS Memory (T1003.001)\"]",
+            "DetectionSource": "EDR",
+            "ServiceSource": "Microsoft Defender for Endpoint",
+            "EvidenceRoles": [
+              "Impacted"
+            ],
+            "Devices": [
+              "wkstn-fixture-014.corp.example.com"
+            ]
+          }
+        ]
+      }
+    },
+    "query_threat_intelligence/sightings": {
+      "192.0.2.44": {
+        "Schema": [
+          {
+            "Name": "Hits",
+            "Type": "Int64"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Entities",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Source",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Hits": 14,
+            "FirstSeen": "2026-08-31T02:14:09.0120000Z",
+            "LastSeen": "2026-08-31T02:58:30.0000000Z",
+            "Entities": [
+              "wkstn-fixture-014.corp.example.com"
+            ],
+            "Source": "DeviceNetworkEvents"
+          }
+        ]
+      },
+      "198.51.100.7": {
+        "Schema": [
+          {
+            "Name": "Hits",
+            "Type": "Int64"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Entities",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Source",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Hits": 37,
+            "FirstSeen": "2026-08-31T02:16:40.6020000Z",
+            "LastSeen": "2026-08-31T04:55:12.0000000Z",
+            "Entities": [
+              "wkstn-fixture-014.corp.example.com",
+              "lt-fixture-233.corp.example.com"
+            ],
+            "Source": "DeviceNetworkEvents"
+          }
+        ]
+      },
+      "updates.fixture.example.com": {
+        "Schema": [
+          {
+            "Name": "Hits",
+            "Type": "Int64"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Entities",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Source",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Hits": 3,
+            "FirstSeen": "2026-08-31T03:07:44.0000000Z",
+            "LastSeen": "2026-08-31T03:09:02.0000000Z",
+            "Entities": [
+              "lt-fixture-233.corp.example.com"
+            ],
+            "Source": "DeviceNetworkEvents"
+          },
+          {
+            "Hits": 2,
+            "FirstSeen": "2026-08-30T19:02:11.0000000Z",
+            "LastSeen": "2026-08-30T19:04:40.0000000Z",
+            "Entities": [
+              "fixture-msg-0101",
+              "fixture-msg-0102"
+            ],
+            "Source": "EmailUrlInfo"
+          }
+        ]
+      },
+      "0000000000000000000000000000000000000000000000000000000000000001": {
+        "Schema": [
+          {
+            "Name": "Hits",
+            "Type": "Int64"
+          },
+          {
+            "Name": "FirstSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "LastSeen",
+            "Type": "DateTime"
+          },
+          {
+            "Name": "Entities",
+            "Type": "Dynamic"
+          },
+          {
+            "Name": "Source",
+            "Type": "String"
+          }
+        ],
+        "Results": [
+          {
+            "Hits": 1,
+            "FirstSeen": "2026-08-31T02:14:31.4400000Z",
+            "LastSeen": "2026-08-31T02:14:31.4400000Z",
+            "Entities": [
+              "wkstn-fixture-014.corp.example.com"
+            ],
+            "Source": "DeviceFileEvents"
+          },
+          {
+            "Hits": 4,
+            "FirstSeen": "2026-08-31T02:14:52.9000000Z",
+            "LastSeen": "2026-08-31T02:31:20.0000000Z",
+            "Entities": [
+              "wkstn-fixture-014.corp.example.com"
+            ],
+            "Source": "DeviceImageLoadEvents"
+          }
+        ]
+      }
+    }
+  }
+}

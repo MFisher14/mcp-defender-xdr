@@ -1,7 +1,7 @@
 # Demo prompts (offline fixture mode)
 
 Paste these into Claude once the server is configured per
-[`README.md`](./README.md) in this directory. They exercise all three tools
+[`README.md`](./README.md) in this directory. They exercise every tool
 plus fan-out and error handling — with **no Azure tenant, no App
 Registration, and no certificate**.
 
@@ -69,7 +69,33 @@ structure and the bounded concurrency, not differing data.
 
 > Run the same Advanced Hunting query across all tenants and compare.
 
-## 5. Confirm the guardrails still apply
+## 5. Investigation pivots
+
+> Incident INC-4471 names device fixture0000000000000000000000000000a014.
+> Pull its timeline for 2026-08-31 between 00:00 and 06:00 UTC and walk me
+> through the attack chain.
+
+`get_device_timeline` returns ten events across all five event families:
+a macro document lands, Word spawns encoded PowerShell, a DLL is dropped and
+loaded by `rundll32`, a Run-key persistence value is set, LSASS is opened,
+and the host beacons to `198.51.100.7`.
+
+> Now investigate the user j.doe.fixture@example.com from 2026-08-30 to
+> 2026-09-01. Anything that looks like the initial access?
+
+`investigate_user` returns sign-ins (including a failed then successful
+cloud sign-in from an unfamiliar location), the inbound invoice email, and
+device logons — including one onto `srv-fixture-db02`.
+
+> Is the SHA-256 0000000000000000000000000000000000000000000000000000000000000001
+> known to Defender? What about the domain updates.fixture.example.com, and
+> the IP 203.0.113.250?
+
+`query_threat_intelligence` finds an alert and file/image-load sightings for
+the hash, an alert plus network and email-URL sightings for the domain, and
+`matched: false` for the IP.
+
+## 6. Confirm the guardrails still apply
 
 Fixture mode replaces the transport, not the validation. These are rejected
 before anything is served:
@@ -81,3 +107,12 @@ Rejected as a destructive KQL control verb.
 > Run an Advanced Hunting query that's 20,000 characters long.
 
 Rejected by the 10,000-character cap.
+
+> Get the device timeline for device `abc" | take 1 //` over the last day.
+
+Rejected: device IDs are alphanumerics and dashes only, so no value can
+escape the server-built query.
+
+> Pull a 60-day timeline for that device.
+
+Rejected: the window is capped at 30 days.

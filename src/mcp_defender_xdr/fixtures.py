@@ -24,11 +24,12 @@ import json
 import os
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .errors import ConfigError, NotFoundError, UpstreamError
+from .kql import TAG_RE
 
 FIXTURE_MODE_ENV = "MCP_DEFENDER_XDR_FIXTURE_MODE"
 
@@ -55,6 +56,8 @@ FIXTURE_DEFAULT_TENANT = FIXTURE_TENANTS[0]
 _ADVANCED_HUNTING_FILE = "advanced_hunting.json"
 _INCIDENTS_FILE = "incidents.json"
 _ALERTS_FILE = "alerts.json"
+#: Optional: recorded results for the server-built investigation queries.
+_INVESTIGATIONS_FILE = "investigations.json"
 
 _PACKAGED_FIXTURE_DIR = "fixture_data"
 
@@ -126,6 +129,21 @@ def _load_json_object(path: Path) -> dict[str, Any]:
     return parsed
 
 
+def _load_hunting_views(path: Path) -> dict[str, dict[str, Any]]:
+    """Load the per-view, per-subject hunting results (optional file)."""
+    if not path.is_file():
+        return {}
+    views = _load_json_object(path).get("views")
+    if not isinstance(views, dict):
+        raise ConfigError(f"Fixture file must contain a 'views' object: {path}")
+    parsed: dict[str, dict[str, Any]] = {}
+    for view, subjects in views.items():
+        if not isinstance(subjects, dict):
+            raise ConfigError(f"Fixture view '{view}' must be an object: {path}")
+        parsed[str(view)] = {str(k).lower(): v for k, v in subjects.items()}
+    return parsed
+
+
 @dataclass(frozen=True)
 class FixtureStore:
     """Recorded upstream payloads, keyed the way the live API returns them."""
@@ -134,6 +152,8 @@ class FixtureStore:
     incidents: dict[str, Any]
     alerts: dict[str, Any]
     source_dir: Path
+    #: ``{view: {subject: raw hunting response}}``; see ``investigations.json``.
+    hunting_views: dict[str, dict[str, Any]] = field(default_factory=dict)
     tenants: tuple[str, ...] = FIXTURE_TENANTS
     default_tenant_key: str = FIXTURE_DEFAULT_TENANT
 
@@ -148,6 +168,7 @@ class FixtureStore:
             incidents=incidents,
             alerts=_load_json_object(source / _ALERTS_FILE),
             source_dir=source,
+            hunting_views=_load_hunting_views(source / _INVESTIGATIONS_FILE),
         )
 
     def list_tenants(self) -> list[str]:
@@ -191,10 +212,26 @@ class FixtureClient:
         raise UpstreamError(f"No fixture recorded for GET {path}")
 
     async def post(self, path: str, *, json: Mapping[str, Any] | None = None) -> dict[str, Any]:
-        del json  # The recorded result set is returned regardless of the KQL sent.
-        if path == _ADVANCED_HUNTING_PATH:
+        if path != _ADVANCED_HUNTING_PATH:
+            raise UpstreamError(f"No fixture recorded for POST {path}")
+        query = (json or {}).get("Query")
+        first_line = query.split("\n", 1)[0] if isinstance(query, str) else ""
+        tag = TAG_RE.match(first_line)
+        if tag is None:
+            # Free-form KQL: the recorded result set is returned regardless of the query.
             return dict(self._store.advanced_hunting)
-        raise UpstreamError(f"No fixture recorded for POST {path}")
+        return self._hunting_view(tag["view"], tag["subject"])
+
+    def _hunting_view(self, view: str, subject: str) -> dict[str, Any]:
+        """Serve a server-built investigation query from ``investigations.json``."""
+        subjects = self._store.hunting_views.get(view)
+        if subjects is None:
+            raise UpstreamError(f"No fixture recorded for hunting view {view!r}")
+        recorded = subjects.get(subject.lower())
+        if not isinstance(recorded, dict):
+            # Nothing recorded for this subject: behave like a query with no matches.
+            return {"Schema": [], "Results": []}
+        return dict(recorded)
 
     def _incident(self, incident_id: str) -> dict[str, Any]:
         incident = self._store.incidents.get(incident_id)

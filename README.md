@@ -64,7 +64,7 @@ Then point your MCP client at it — no credentials in the config:
 }
 ```
 
-Demo prompts covering all three tools, fan-out, and the error paths are in
+Demo prompts covering every tool, fan-out, and the error paths are in
 [`examples/prompts.md`](./examples/prompts.md); setup detail is in
 [`examples/README.md`](./examples/README.md).
 
@@ -227,14 +227,20 @@ readable.
 
 The server targets the **Microsoft Defender for Endpoint REST API** at
 `https://api.securitycenter.microsoft.com` (`DEFAULT_DEFENDER_RESOURCE` in
-[`src/mcp_defender_xdr/auth.py`](./src/mcp_defender_xdr/auth.py)). All
-three tools call paths on that host:
+[`src/mcp_defender_xdr/auth.py`](./src/mcp_defender_xdr/auth.py)). Every
+tool calls paths on that host:
 
-| Tool                     | Request                            |
-| ------------------------ | ---------------------------------- |
-| `query_advanced_hunting` | `POST /api/advancedqueries/run`    |
-| `get_incident`           | `GET /api/incidents/{incident_id}` |
-| `list_alerts`            | `GET /api/alerts`                  |
+| Tool                        | Request                                         |
+| --------------------------- | ----------------------------------------------- |
+| `query_advanced_hunting`    | `POST /api/advancedqueries/run`                 |
+| `get_incident`              | `GET /api/incidents/{incident_id}`              |
+| `list_alerts`               | `GET /api/alerts`                               |
+| `get_device_timeline`       | `POST /api/advancedqueries/run` (server-built KQL) |
+| `investigate_user`          | `POST /api/advancedqueries/run` (server-built KQL) |
+| `query_threat_intelligence` | `POST /api/advancedqueries/run` ×2 (server-built KQL) |
+
+The three investigation tools are built on Advanced Hunting, so they need
+no permission beyond `AdvancedQuery.Read.All`.
 
 This is **not** the Microsoft Graph Security API, which lives at
 `https://graph.microsoft.com/v1.0/security` and uses different paths,
@@ -342,7 +348,7 @@ shell's `PATH`, so a bare `"mcp-defender-xdr"` will not resolve.
 
 ## Tools
 
-All three tools accept an optional `tenant` parameter:
+Every tool accepts an optional `tenant` parameter:
 
 - **omitted** → the configured `default` tenant.
 - **`"contoso"`** (or any configured key) → that specific tenant.
@@ -406,6 +412,76 @@ Returns severity, status, classification, alerts, and impacted entities.
 `severity` ∈ {`High`, `Medium`, `Low`, `Informational`}; `status` ∈
 {`New`, `InProgress`, `Resolved`}; `limit` ∈ [1, 100], default 25.
 
+### Investigation tools
+
+These three answer the usual next question after an alert names a device,
+a user, or an indicator. The caller never writes KQL: each tool validates
+its inputs against strict patterns, then builds a read-only Advanced
+Hunting query server-side (every value is emitted as an escaped KQL
+literal, so validation and escaping both have to fail before injection is
+possible). The full query text is written to the audit log.
+
+Time windows take ISO 8601 timestamps **with a timezone**, `end` must be
+after `start`, and the window is capped at 30 days (Advanced Hunting
+retention). Results are capped at `limit` rows and flagged `truncated` when
+more exist; empty columns are dropped from each row to keep the payload
+small.
+
+#### `get_device_timeline`
+
+```json
+{
+  "device_id": "fixture0000000000000000000000000000a014",
+  "start": "2026-08-31T00:00:00Z",
+  "end": "2026-08-31T06:00:00Z",
+  "event_types": ["process", "network"],
+  "limit": 200
+}
+```
+
+Merges `DeviceProcessEvents`, `DeviceNetworkEvents`, `DeviceFileEvents`,
+`DeviceRegistryEvents`, and `DeviceEvents` (`event_types` ∈ {`process`,
+`network`, `file`, `registry`, `other`}; omit for all) into one timeline,
+newest first, with per-type counts.
+
+#### `investigate_user`
+
+```json
+{
+  "account_upn": "j.doe@contoso.com",
+  "start": "2026-08-30T00:00:00Z",
+  "end": "2026-09-01T00:00:00Z",
+  "signal_types": ["sign_in", "mailbox", "device"]
+}
+```
+
+Give exactly one of `account_upn` or `account_sid`; the other is resolved
+through `IdentityInfo`. Returns sign-ins (`IdentityLogonEvents`), mail sent
+or received (`EmailEvents`, matched on the UPN), and device logons
+(`DeviceLogonEvents`), grouped by signal and capped per signal so a busy
+mailbox cannot crowd out sign-ins. `found: false` means nothing matched.
+Tables a tenant is not licensed for are skipped (`union isfuzzy=true`)
+rather than failing the call.
+
+#### `query_threat_intelligence`
+
+```json
+{"ioc_type": "hash", "ioc_value": "<sha256>", "lookback_days": 30}
+```
+
+`ioc_type` ∈ {`ip`, `domain`, `url`, `hash`}; hashes may be MD5, SHA-1, or
+SHA-256 (inferred from length). Returns the alerts whose evidence contains
+the indicator (`AlertEvidence`: title, severity, detection source, MITRE
+techniques, devices), the highest severity among them, and telemetry
+sightings by table (hit count, first/last seen, devices or mailboxes).
+
+**What it does not consult.** Custom indicators (Settings → Indicators)
+are listed only by `GET /api/indicators`, which requires the
+`Ti.ReadWrite` application permission, and the file and domain
+related-alert endpoints require `Alert.ReadWrite.All`. Both are write
+scopes, so this read-only server does not use them; every result carries a
+`coverage_note` saying so, so a `matched: false` is never over-read.
+
 ---
 
 ## Security design
@@ -461,8 +537,9 @@ includes:
 
 - Querying incidents and alerts
 - Running Advanced Hunting (KQL) queries
-- Fetching threat intelligence (planned for v0.3 — see
-  [Issues](https://github.com/MFisher14/mcp-defender-xdr/issues))
+- Pivoting from a device, a user, or an indicator of compromise to the
+  related telemetry and alerts (`get_device_timeline`, `investigate_user`,
+  `query_threat_intelligence`)
 
 **Out of scope** for v0.1.x and the foreseeable roadmap:
 

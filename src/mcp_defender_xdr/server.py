@@ -24,7 +24,14 @@ from .fixtures import (
     fixture_mode_requested,
 )
 from .tool_context import ToolContext
-from .tools import advanced_hunting, alerts, incidents
+from .tools import (
+    advanced_hunting,
+    alerts,
+    device_timeline,
+    incidents,
+    investigate_user,
+    threat_intelligence,
+)
 
 ServerName = "mcp-defender-xdr"
 
@@ -33,31 +40,29 @@ _log = logging.getLogger("mcp_defender_xdr.server")
 ToolHandler = Callable[[ToolContext, dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
+#: Every tool module exposes TOOL_NAME, TOOL_DESCRIPTION, INPUT_SCHEMA, and run().
+_TOOL_MODULES = (
+    advanced_hunting,
+    incidents,
+    alerts,
+    device_timeline,
+    investigate_user,
+    threat_intelligence,
+)
+
+
 def _tool_definitions() -> list[mcp_types.Tool]:
     return [
         mcp_types.Tool(
-            name=advanced_hunting.TOOL_NAME,
-            description=advanced_hunting.TOOL_DESCRIPTION,
-            inputSchema=advanced_hunting.INPUT_SCHEMA,
-        ),
-        mcp_types.Tool(
-            name=incidents.TOOL_NAME,
-            description=incidents.TOOL_DESCRIPTION,
-            inputSchema=incidents.INPUT_SCHEMA,
-        ),
-        mcp_types.Tool(
-            name=alerts.TOOL_NAME,
-            description=alerts.TOOL_DESCRIPTION,
-            inputSchema=alerts.INPUT_SCHEMA,
-        ),
+            name=module.TOOL_NAME,
+            description=module.TOOL_DESCRIPTION,
+            inputSchema=module.INPUT_SCHEMA,
+        )
+        for module in _TOOL_MODULES
     ]
 
 
-_HANDLERS: dict[str, ToolHandler] = {
-    advanced_hunting.TOOL_NAME: advanced_hunting.run,
-    incidents.TOOL_NAME: incidents.run,
-    alerts.TOOL_NAME: alerts.run,
-}
+_HANDLERS: dict[str, ToolHandler] = {module.TOOL_NAME: module.run for module in _TOOL_MODULES}
 
 
 def _error_result(code: ErrorCode, message: str) -> mcp_types.CallToolResult:

@@ -4,6 +4,24 @@ All notable changes to `mcp-defender-xdr` are recorded in this file. The
 format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `get_device_timeline` (#7): one device's process, network, file,
+  registry, and other events in a bounded window, merged newest-first.
+- `investigate_user` (#8): one user's sign-ins, mail flow, and device
+  logons by UPN or SID, grouped by signal type.
+- `query_threat_intelligence` (#9): alerts and telemetry sightings for an
+  IP, domain, URL, or MD5/SHA-1/SHA-256 hash. Built on Advanced Hunting so
+  it stays read-only; custom indicators are not listed because that API
+  requires `Ti.ReadWrite`.
+- The three tools build their KQL server-side from validated inputs, with
+  every value emitted as an escaped literal (`kql.py`). No new API
+  permissions are required beyond `AdvancedQuery.Read.All`.
+- Offline fixtures for all three (`examples/fixtures/investigations.json`),
+  routed by a tag on the first line of each server-built query.
+
 ## [0.2.0] - 2026-09-04
 
 Supersedes the 0.1.1 version bump, which was developed but never tagged or

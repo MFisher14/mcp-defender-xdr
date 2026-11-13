@@ -1,6 +1,6 @@
 # Offline fixture mode
 
-Run `mcp-defender-xdr` and exercise all three tools with **no Azure tenant, no
+Run `mcp-defender-xdr` and exercise every tool with **no Azure tenant, no
 App Registration, and no certificate**. Fixture mode replaces the HTTP and
 OAuth layer with recorded synthetic responses; everything above it —
 validation, the per-tool response transforms, multi-tenant fan-out, the audit
@@ -104,7 +104,8 @@ Three independent signals, on every call:
 | `fixtures/advanced_hunting.json` | `POST /api/advancedqueries/run` — 5 rows, 8-column schema      |
 | `fixtures/incidents.json`        | `GET /api/incidents/{id}` — `INC-4471`, `INC-8892`             |
 | `fixtures/alerts.json`           | `GET /api/alerts` — 6 alerts across all four severities        |
-| `prompts.md`                     | Demo prompts covering all three tools, fan-out, and errors     |
+| `fixtures/investigations.json`   | Advanced Hunting results for the investigation tools, by subject |
+| `prompts.md`                     | Demo prompts covering every tool, fan-out, and errors          |
 
 The files hold **raw upstream response shapes**, not finished tool output. Each
 tool's real parsing code runs against them, so what you see is what the live
@@ -114,6 +115,17 @@ Fixture mode also honours the request parameters the tools build: the OData
 `$filter` from `severity`/`status` and the `$top` from `limit` are applied to
 the recorded alert set, and an incident ID with no fixture raises the same
 `not_found` error the live 404 maps to.
+
+The investigation tools (`get_device_timeline`, `investigate_user`,
+`query_threat_intelligence`) build their KQL server-side and tag its first
+line with the tool and subject. Fixture mode reads that tag and serves the
+matching entry from `investigations.json`; a subject with no entry returns
+an empty result set, like a live query that matches nothing. Recorded
+subjects: device `fixture0000000000000000000000000000a014`, user
+`j.doe.fixture@example.com` (or its SID
+`S-1-5-21-1000000000-2000000000-3000000000-1104`), and indicators
+`192.0.2.44`, `198.51.100.7`, `updates.fixture.example.com`, and SHA-256
+`000…001`.
 
 Two synthetic tenants (`contoso-fixture`, `fabrikam-fixture`) are configured so
 `tenant: "*"` fan-out is demonstrable. Both return the same recorded payload;
