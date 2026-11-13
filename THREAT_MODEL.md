@@ -122,9 +122,23 @@ MCP response that the model echoes to the user.
    become `internal_error` with a fixed string; the original exception
    message is dropped. Tested
    (`test_server_dispatch_maps_unhandled_to_internal`).
+8. **Secret-store providers (optional).** A tenant entry with
+   `"provider": "keyvault"` or `"provider": "aws-secretsmanager"` keeps the
+   PFX (and optionally its passphrase) in Azure Key Vault or AWS Secrets
+   Manager instead of on the host. It is fetched once at startup with the
+   host's workload or managed identity (`DefaultAzureCredential`) or the
+   standard AWS credential chain, parsed in memory, and handed to MSAL as
+   a PEM key plus certificate. **Nothing is written to disk.** The key is
+   held only in process memory (see T4), `AzureCredentials.__repr__`
+   prints `***IN-MEMORY***` in its place, and errors name the vault,
+   region, and secret, never the value. Access to the secret is governed
+   and audited by the cloud provider's own RBAC/IAM, so it can be revoked
+   without touching the host.
 
 **Residual risk.** A user with read access to the host filesystem can
-copy the PFX directly. Mitigation moves from "rotate a leaked secret" to
+copy the PFX directly (file provider only; with a secret-store provider
+the equivalent risk is anyone who can act as the host's cloud identity,
+which can read the secret). Mitigation moves from "rotate a leaked secret" to
 "revoke a leaked cert in Azure portal + rotate the PFX." Store PFX
 files on an encrypted volume; rotate the cert annually or on suspected
 exposure. Certs resist *log-scrape* exfiltration (unlike a secret quoted

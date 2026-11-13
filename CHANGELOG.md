@@ -4,6 +4,30 @@ All notable changes to `mcp-defender-xdr` are recorded in this file. The
 format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Azure Key Vault credential provider (#3): `"provider": "keyvault"` in a
+  tenants-file entry reads the PFX, and optionally its passphrase, from Key
+  Vault using `DefaultAzureCredential` (workload identity, managed identity,
+  or an environment service principal). Extra: `[keyvault]`.
+- AWS Secrets Manager credential provider (#4): `"provider":
+  "aws-secretsmanager"` reads the same material using the standard AWS
+  credential chain. Extra: `[aws-secretsmanager]`.
+- Both parse the certificate in memory and pass MSAL a PEM key plus
+  certificate, so the PFX never touches the host filesystem. They accept raw
+  PKCS#12, base64 PKCS#12, or a PEM key+certificate bundle.
+
+### Changed
+
+- `msal` floor raised to 1.35.0, the first release that derives a SHA-256
+  thumbprint (PS256) from an in-memory `public_certificate`.
+- `cryptography` is now a declared dependency (it was already installed
+  transitively through `msal`).
+- `AzureCredentials.cert_path` is optional; exactly one of `cert_path` or
+  the new `certificate` must be set.
+
 ## [0.2.0] - 2026-09-04
 
 Supersedes the 0.1.1 version bump, which was developed but never tagged or

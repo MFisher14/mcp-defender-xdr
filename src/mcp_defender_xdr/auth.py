@@ -19,6 +19,13 @@ import msal
 
 from .audit import audit
 from .errors import AuthError
+from .secret_stores import (
+    PROVIDER_FILE,
+    REMOTE_PROVIDERS,
+    CertificateMaterial,
+    StoreFactories,
+    load_remote_credentials,
+)
 
 DEFAULT_DEFENDER_RESOURCE = "https://api.securitycenter.microsoft.com"
 DEFAULT_DEFENDER_SCOPE = f"{DEFAULT_DEFENDER_RESOURCE}/.default"
@@ -36,15 +43,22 @@ class AzureCredentials:
 
     tenant_id: str
     client_id: str
-    cert_path: str
+    cert_path: str | None = None
     cert_passphrase: str | None = None
+    #: In-memory key + certificate from a secret store; replaces ``cert_path``.
+    certificate: CertificateMaterial | None = None
+
+    def __post_init__(self) -> None:
+        if (self.cert_path is None) == (self.certificate is None):
+            raise ValueError("AzureCredentials needs exactly one of cert_path or certificate")
 
     def __repr__(self) -> str:
         passphrase_repr = "None" if self.cert_passphrase is None else "'***REDACTED***'"
+        cert_repr = "None" if self.certificate is None else "'***IN-MEMORY***'"
         return (
             f"AzureCredentials(tenant_id={self.tenant_id!r}, "
             f"client_id={self.client_id!r}, cert_path={self.cert_path!r}, "
-            f"cert_passphrase={passphrase_repr})"
+            f"cert_passphrase={passphrase_repr}, certificate={cert_repr})"
         )
 
     @property
@@ -108,8 +122,15 @@ class EnvCredentialProvider(CredentialProvider):
 class JsonFileCredentialProvider(CredentialProvider):
     """Loads N tenant credential bundles from a JSON config file."""
 
-    def __init__(self, path: str | Path, *, env: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        env: dict[str, str] | None = None,
+        store_factories: StoreFactories | None = None,
+    ) -> None:
         self._path = Path(path)
+        self._store_factories = store_factories
         env_source: dict[str, str] = dict(env) if env is not None else dict(os.environ)
         if not self._path.is_file():
             raise AuthError(f"Tenants config file not found: {self._path}")
@@ -123,7 +144,7 @@ class JsonFileCredentialProvider(CredentialProvider):
         except json.JSONDecodeError as exc:
             raise AuthError(f"Tenants config is not valid JSON: {self._path}") from exc
 
-        self._default_tenant, self._tenants = self._parse(data, env_source)
+        self._default_tenant, self._tenants = self._parse(data, env_source, store_factories)
 
     @staticmethod
     def _check_permissions(path: Path) -> None:
@@ -139,7 +160,11 @@ class JsonFileCredentialProvider(CredentialProvider):
             )
 
     @staticmethod
-    def _parse(data: Any, env_source: dict[str, str]) -> tuple[str, dict[str, AzureCredentials]]:
+    def _parse(
+        data: Any,
+        env_source: dict[str, str],
+        store_factories: StoreFactories | None = None,
+    ) -> tuple[str, dict[str, AzureCredentials]]:
         if not isinstance(data, dict):
             raise AuthError("Tenants config root must be a JSON object")
         tenants_raw = data.get("tenants")
@@ -154,6 +179,12 @@ class JsonFileCredentialProvider(CredentialProvider):
                 )
             if not isinstance(entry, dict):
                 raise AuthError(f"Tenant entry must be an object: '{key}'")
+            provider = entry.get("provider", PROVIDER_FILE)
+            if provider != PROVIDER_FILE:
+                parsed[key] = JsonFileCredentialProvider._parse_remote(
+                    key, entry, provider, env_source, store_factories
+                )
+                continue
             tenant_id = entry.get("tenant_id")
             client_id = entry.get("client_id")
             cert_path = entry.get("cert_path")
@@ -179,6 +210,30 @@ class JsonFileCredentialProvider(CredentialProvider):
         if not isinstance(default_key, str) or default_key not in parsed:
             raise AuthError("Tenants config 'default' must name an existing tenant key")
         return default_key, parsed
+
+    @staticmethod
+    def _parse_remote(
+        key: str,
+        entry: dict[str, Any],
+        provider: Any,
+        env_source: dict[str, str],
+        store_factories: StoreFactories | None,
+    ) -> AzureCredentials:
+        if not isinstance(provider, str) or provider not in REMOTE_PROVIDERS:
+            raise AuthError(
+                f"Tenant '{key}': unknown provider (expected one of: "
+                f"{PROVIDER_FILE}, {', '.join(REMOTE_PROVIDERS)})"
+            )
+        tenant_id = entry.get("tenant_id")
+        client_id = entry.get("client_id")
+        if not (isinstance(tenant_id, str) and isinstance(client_id, str)):
+            raise AuthError(f"Tenant '{key}' missing required string fields (tenant_id, client_id)")
+        material = load_remote_credentials(
+            provider, key, entry, env=env_source, store_factories=store_factories
+        )
+        return AzureCredentials(
+            tenant_id=tenant_id.strip(), client_id=client_id.strip(), certificate=material
+        )
 
     @staticmethod
     def _resolve_passphrase(
@@ -247,6 +302,8 @@ def _default_msal_factory(
 
 
 def _build_client_credential(creds: AzureCredentials) -> dict[str, Any]:
+    if creds.certificate is not None:
+        return creds.certificate.msal_credential()
     payload: dict[str, Any] = {"private_key_pfx_path": creds.cert_path}
     if creds.cert_passphrase is not None:
         payload["passphrase"] = creds.cert_passphrase
