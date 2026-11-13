@@ -8,10 +8,10 @@ Defender XDR. Generic OWASP advice is omitted in favor of specifics.
 ## Scope and trust boundaries
 
 ```
-+----------+   stdio   +--------------------+   HTTPS    +---------------------+
-|  Claude  |<--------->|  mcp-defender-xdr  |<---------->|  Defender XDR API   |
-| (client) |   MCP     |  (this process)    |  OAuth     |  securitycenter.ms  |
-+----------+           +--------------------+            +---------------------+
++----------+   stdio, or  +--------------------+   HTTPS    +---------------------+
+|  Claude  |<------------>|  mcp-defender-xdr  |<---------->|  Defender XDR API   |
+| (client) | HTTP + JWT   |  (this process)    |  OAuth     |  securitycenter.ms  |
++----------+   (T8, A4)   +--------------------+            +---------------------+
                               ^   ^
                               |   |
                           env vars
@@ -43,6 +43,11 @@ Defender XDR. Generic OWASP advice is omitted in favor of specifics.
   environment or attach to the process to steal the secret or the
   access token. Mitigations are best-effort; the host OS is the line of
   defense.
+- **A4 — A network attacker** *(HTTP transport only)*. Can reach the
+  listening port and send arbitrary HTTP. May have captured a bearer
+  token in transit or from a log, and may try DNS rebinding through a
+  victim's browser. Under stdio this actor does not exist: there is no
+  listener. See T8.
 
 ---
 
@@ -297,6 +302,70 @@ operations between `dispatch` and the per-tenant `await`.
 
 ---
 
+## T8 — Bearer-token validation on the HTTP transport *(A4)*
+
+**Scenario.** With `MCP_DEFENDER_XDR_TRANSPORT=http`, the server
+listens on a TCP port. Every request that gets through carries the full
+read capability of every configured tenant, so an unauthenticated or
+weakly authenticated listener is equivalent to leaking the certificate.
+Attacks: no token; a forged token (`alg: none`, an HS256 token signed
+with an RS256 public key, a token for a different service); an expired
+or long-lived token; a token **replayed** after capture; a valid token
+for user B used on user A's session; DNS rebinding from a browser; and
+token leakage into logs.
+
+**Mitigations** (`http_transport.py`).
+
+1. **No auth, no listener.** HTTP mode refuses to start unless an
+   algorithm, key, `aud`, and `iss` are configured. Startup fails with
+   exit 2 before any credential is loaded.
+2. **One pinned algorithm.** The verification algorithm comes from
+   config, never from the token header. A header that does not match is
+   rejected before signature verification, which defeats `alg: none` and
+   HMAC/RSA key confusion. HMAC secrets must be at least 32 bytes. In
+   asymmetric mode the server holds only a public key: it refuses a PEM
+   containing a private key, and refuses a shared secret alongside one.
+3. **Bound to this instance.** `aud` and `iss` must equal the server's
+   configured values. A token minted for another service, or by another
+   issuer, fails.
+4. **Short-lived.** `exp`, `iat`, `sub`, and `jti` are required. `iat`
+   may not be in the future, and `exp − iat` may not exceed
+   `MCP_DEFENDER_XDR_JWT_MAX_TTL_SECONDS` (900 s by default, 3600 s at
+   most), with 30 s of clock leeway.
+5. **Replay binding.** A token (`jti`) can open at most one MCP session
+   and is then bound to that session ID. A session is bound to the
+   `sub` that opened it. Replaying a captured token to open a new
+   session, moving it to another session, or presenting another
+   subject's token on an existing session all fail (401, 401, 403). A
+   fresh token for the same subject may continue a session, so clients
+   can refresh without reconnecting. Bindings live in memory and expire
+   with the token. Tracked sessions are capped at 10,000.
+6. **Audited rejections, never the token.** Each rejection writes an
+   `http-auth-rejected` record with a stable reason code, the method,
+   and the client address. Each new session writes `http-session-opened`
+   with `sub`, `jti`, and the session ID. The `Authorization` header is
+   never logged or echoed; 401 bodies are a fixed string. Tested.
+7. **Transport hygiene.** Defaults to binding `127.0.0.1`. A
+   non-loopback bind without TLS is refused unless the operator sets
+   `MCP_DEFENDER_XDR_HTTP_ALLOW_PLAINTEXT=behind-tls-terminating-proxy`.
+   The MCP SDK's DNS-rebinding protection is on, with an explicit
+   `Host` allowlist and an empty `Origin` allowlist by default. Request
+   bodies over 1 MiB are refused, and any path other than the MCP
+   endpoint returns 404.
+8. **Transport in every audit line.** Every audit record carries
+   `"transport": "stdio" | "http"`.
+
+**Residual risk.** A token stolen *and used first*, before its owner
+opens a session with it, is accepted for up to its lifetime. Keep TTLs
+short and serve over TLS. Replay state is per-process, so a restart
+forgets bindings, and two replicas behind a load balancer do not share
+them; pin sessions to one replica, as MCP Streamable HTTP sessions
+already require. Per-tool or per-tenant authorization by `sub` is not
+implemented: any valid token gets every tool on every configured
+tenant (see Non-goals).
+
+---
+
 ## Non-goals
 
 - **PII scrubbing inside Defender data.** The server returns whatever
@@ -308,5 +377,9 @@ operations between `dispatch` and the per-tenant `await`.
   per-user RBAC should layer it in front of the MCP client, not inside
   the server.
 - **End-to-end encryption of stdio.** stdio is a process-local pipe;
-  if the threat model requires network-layer crypto, use HTTP/SSE
-  transport (planned v0.5) over TLS.
+  if the threat model requires network-layer crypto, use the HTTP
+  transport over TLS (T8).
+- **Token issuance.** The HTTP transport validates bearer tokens; it
+  does not issue them, manage signing keys, or know users. That belongs
+  to the operator's identity provider. `examples/mint_token.py` is a
+  development stand-in only.

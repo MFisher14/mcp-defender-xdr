@@ -13,6 +13,17 @@ from datetime import UTC, datetime
 from typing import Any
 
 _LOGGER_NAME = "mcp_defender_xdr.audit"
+
+#: Stamped on every audit record so stdio and HTTP deployments are distinguishable
+#: in a shared log pipeline. Set once at startup by the server entry point.
+_transport = "stdio"
+
+
+def set_transport(name: str) -> None:
+    global _transport
+    _transport = name
+
+
 _ENV_LEVEL = "MCP_DEFENDER_XDR_LOG_LEVEL"
 
 
@@ -23,6 +34,7 @@ class _JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "event": record.getMessage(),
+            "transport": _transport,
         }
         extra = getattr(record, "audit_fields", None)
         if isinstance(extra, dict):
