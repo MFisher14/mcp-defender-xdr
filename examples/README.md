@@ -105,6 +105,7 @@ Three independent signals, on every call:
 | `fixtures/incidents.json`        | `GET /api/incidents/{id}` — `INC-4471`, `INC-8892`             |
 | `fixtures/alerts.json`           | `GET /api/alerts` — 6 alerts across all four severities        |
 | `fixtures/investigations.json`   | Advanced Hunting results for the investigation tools, by subject |
+| `fixtures/sentinel.json`         | Sentinel workspace (contoso only), a firewall query result, 4 saved searches |
 | `prompts.md`                     | Demo prompts covering every tool, fan-out, and errors          |
 
 The files hold **raw upstream response shapes**, not finished tool output. Each

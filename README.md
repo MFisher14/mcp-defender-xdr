@@ -282,6 +282,10 @@ tool calls paths on that host:
 The three investigation tools are built on Advanced Hunting, so they need
 no permission beyond `AdvancedQuery.Read.All`.
 
+The two Sentinel tools are the exception. They call the Log Analytics
+query API and Azure Resource Manager, with tokens for those audiences; see
+[Microsoft Sentinel](#microsoft-sentinel-query_sentinel-and-list_sentinel_hunting_queries).
+
 This is **not** the Microsoft Graph Security API, which lives at
 `https://graph.microsoft.com/v1.0/security` and uses different paths,
 different response shapes, and different permission names. The server does
@@ -729,6 +733,59 @@ are listed only by `GET /api/indicators`, which requires the
 related-alert endpoints require `Alert.ReadWrite.All`. Both are write
 scopes, so this read-only server does not use them; every result carries a
 `coverage_note` saying so, so a `matched: false` is never over-read.
+
+### Microsoft Sentinel: `query_sentinel` and `list_sentinel_hunting_queries`
+
+For SOCs that route Defender data into Microsoft Sentinel alongside their
+own sources (firewalls, `SigninLogs`, custom `*_CL` tables), two tools query
+the tenant's Log Analytics workspace:
+
+```json
+{"query": "CommonSecurityLog | where DestinationIP == '198.51.100.7' | take 50", "timespan": "P7D"}
+```
+
+```json
+{"saved_query_id": "fixture-hunt-beaconing", "timespan": "P1D"}
+```
+
+- `query_sentinel` takes either `query` (KQL, with the same guardrails as
+  Advanced Hunting) or `saved_query_id`. It returns the schema and up to
+  `limit` rows (default 200, max 1,000), flagged `truncated` when the cap
+  cuts rows off.
+- `list_sentinel_hunting_queries` lists the workspace's saved searches in
+  category `Hunting Queries` (configurable), with tactics, techniques,
+  description, and KQL. Filter with `search` or `tactic`. The `id` it
+  returns is what `saved_query_id` takes. A saved query's KQL passes the
+  same validation before it runs.
+- Every result carries an `untrusted_content_notice`: custom tables can
+  hold anything anyone on the network chose to send.
+
+**Configuration.** Per tenant, in the tenants file:
+
+```json
+"contoso": {
+  "...": "...",
+  "sentinel_workspace_id": "0f1c5000-0000-4000-8000-00000000f1c5",
+  "sentinel_workspace_resource_id": "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>"
+}
+```
+
+Or, in single-tenant mode, `MCP_DEFENDER_XDR_SENTINEL_WORKSPACE_ID` and
+`MCP_DEFENDER_XDR_SENTINEL_WORKSPACE_RESOURCE_ID`. The workspace ID (a
+GUID, under the workspace's *Overview* page) is enough for queries. The
+resource ID is needed only to list or run saved hunting queries. Tenants
+without a workspace return `invalid_input` in their fan-out slot.
+
+**Permissions.** These are Azure RBAC role assignments on the workspace,
+not API permissions, for the same App Registration and certificate:
+
+| Role (scope: the workspace) | Why |
+| --------------------------- | --- |
+| **Log Analytics Reader** | Run KQL via `POST https://api.loganalytics.io/v1/workspaces/{id}/query` (token audience `https://api.loganalytics.io`) |
+| **Reader** | Read saved searches via `GET https://management.azure.com{resource-id}/savedSearches` (token audience ARM) |
+
+Both roles are read-only. Role assignments can take up to an hour to take
+effect.
 
 ---
 

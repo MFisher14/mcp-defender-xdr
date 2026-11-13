@@ -11,7 +11,7 @@ from ..defender_client import DefenderApi
 from ..errors import DefenderError, ErrorCode, InvalidInputError
 from ..fixtures import FIXTURE_AUDIT_EVENT, SYNTHETIC_NOTICE, mark_result
 from ..quota import rows_in
-from ..tool_context import ToolContext
+from ..tool_context import API_DEFENDER, ToolContext
 from ..validation import FAN_OUT_TENANT
 
 TenantCall = Callable[[DefenderApi], Awaitable[dict[str, Any]]]
@@ -36,6 +36,8 @@ async def dispatch(
     tool_name: str,
     targets: list[str],
     call: TenantCall,
+    *,
+    api: str = API_DEFENDER,
 ) -> dict[str, Any]:
     if ctx.fixture_mode:
         # Loud, WARNING-level, on every single tool call — never a startup-only
@@ -53,7 +55,7 @@ async def dispatch(
         quotas = ctx.quotas
         if quotas is not None:
             quotas.admit(tenant_key, tool_name)
-        payload = await call(ctx.client_for(tenant_key))
+        payload = await call(ctx.client_for(tenant_key, api))
         if quotas is not None:
             quotas.record_rows(tenant_key, rows_in(payload))
         return payload

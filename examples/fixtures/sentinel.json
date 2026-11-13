@@ -1,0 +1,204 @@
+{
+  "_comment": "SYNTHETIC FIXTURE DATA. Not from a live Sentinel workspace. 'workspaces' assigns a Sentinel workspace to contoso-fixture only (fabrikam-fixture has none, to show the not-configured error in fan-out). 'query_result' is a raw POST /v1/workspaces/{id}/query response; 'saved_searches' a raw ARM savedSearches list. Hosts are invented; IPs are RFC 5737 documentation ranges.",
+  "workspaces": {
+    "contoso-fixture": {
+      "workspace_id": "0f1c5000-0000-4000-8000-00000000f1c5",
+      "resource_id": "/subscriptions/00000000-0000-0000-0000-00000000f1c5/resourceGroups/rg-fixture-soc/providers/Microsoft.OperationalInsights/workspaces/law-fixture-sentinel"
+    }
+  },
+  "query_result": {
+    "tables": [
+      {
+        "name": "PrimaryResult",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "DeviceVendor",
+            "type": "string"
+          },
+          {
+            "name": "Activity",
+            "type": "string"
+          },
+          {
+            "name": "SourceIP",
+            "type": "string"
+          },
+          {
+            "name": "SourceHostName",
+            "type": "string"
+          },
+          {
+            "name": "DestinationIP",
+            "type": "string"
+          },
+          {
+            "name": "DestinationPort",
+            "type": "int"
+          },
+          {
+            "name": "DeviceAction",
+            "type": "string"
+          },
+          {
+            "name": "ReceivedBytes",
+            "type": "long"
+          }
+        ],
+        "rows": [
+          [
+            "2026-08-31T02:16:40.7000000Z",
+            "FixtureFW",
+            "TRAFFIC",
+            "192.0.2.21",
+            "wkstn-fixture-014.corp.example.com",
+            "198.51.100.7",
+            8443,
+            "allow",
+            18233
+          ],
+          [
+            "2026-08-31T02:33:10.3000000Z",
+            "FixtureFW",
+            "TRAFFIC",
+            "192.0.2.21",
+            "wkstn-fixture-014.corp.example.com",
+            "198.51.100.7",
+            8443,
+            "allow",
+            412887
+          ],
+          [
+            "2026-08-31T03:07:44.6000000Z",
+            "FixtureFW",
+            "URL",
+            "192.0.2.58",
+            "lt-fixture-233.corp.example.com",
+            "203.0.113.201",
+            443,
+            "alert",
+            9921
+          ],
+          [
+            "2026-08-31T04:55:12.1000000Z",
+            "FixtureFW",
+            "TRAFFIC",
+            "192.0.2.58",
+            "lt-fixture-233.corp.example.com",
+            "198.51.100.7",
+            8443,
+            "deny",
+            0
+          ]
+        ]
+      }
+    ]
+  },
+  "saved_searches": {
+    "value": [
+      {
+        "id": "/subscriptions/00000000-0000-0000-0000-00000000f1c5/resourceGroups/rg-fixture-soc/providers/Microsoft.OperationalInsights/workspaces/law-fixture-sentinel/savedSearches/fixture-hunt-beaconing",
+        "name": "fixture-hunt-beaconing",
+        "type": "Microsoft.OperationalInsights/savedSearches",
+        "properties": {
+          "category": "Hunting Queries",
+          "displayName": "Periodic outbound beaconing to a single external IP",
+          "query": "CommonSecurityLog\n| where DeviceAction == \"allow\"\n| summarize Connections = count(), Bytes = sum(ReceivedBytes) by SourceHostName, DestinationIP, bin(TimeGenerated, 10m)\n| where Connections > 3",
+          "tags": [
+            {
+              "name": "tactics",
+              "value": "CommandAndControl"
+            },
+            {
+              "name": "techniques",
+              "value": "T1071,T1571"
+            },
+            {
+              "name": "description",
+              "value": "Finds hosts making repeated connections to the same external IP on a fixed cadence. Synthetic fixture query."
+            }
+          ],
+          "version": 2
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-0000-0000-0000-00000000f1c5/resourceGroups/rg-fixture-soc/providers/Microsoft.OperationalInsights/workspaces/law-fixture-sentinel/savedSearches/fixture-hunt-runkey",
+        "name": "fixture-hunt-runkey",
+        "type": "Microsoft.OperationalInsights/savedSearches",
+        "properties": {
+          "category": "Hunting Queries",
+          "displayName": "New Run-key persistence written by rundll32",
+          "query": "DeviceRegistryEvents\n| where RegistryKey has @\"\\CurrentVersion\\Run\"\n| where InitiatingProcessFileName =~ \"rundll32.exe\"",
+          "tags": [
+            {
+              "name": "tactics",
+              "value": "Persistence"
+            },
+            {
+              "name": "techniques",
+              "value": "T1547.001"
+            },
+            {
+              "name": "description",
+              "value": "Registry Run keys set by rundll32 are a common post-exploitation persistence step. Synthetic fixture query."
+            }
+          ],
+          "version": 2
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-0000-0000-0000-00000000f1c5/resourceGroups/rg-fixture-soc/providers/Microsoft.OperationalInsights/workspaces/law-fixture-sentinel/savedSearches/fixture-hunt-lsass",
+        "name": "fixture-hunt-lsass",
+        "type": "Microsoft.OperationalInsights/savedSearches",
+        "properties": {
+          "category": "Hunting Queries",
+          "displayName": "Non-standard process opening LSASS",
+          "query": "DeviceEvents\n| where ActionType == \"OpenProcessApiCall\" and FileName =~ \"lsass.exe\"\n| where InitiatingProcessFileName !in~ (\"MsMpEng.exe\", \"svchost.exe\")",
+          "tags": [
+            {
+              "name": "tactics",
+              "value": "CredentialAccess"
+            },
+            {
+              "name": "techniques",
+              "value": "T1003.001"
+            },
+            {
+              "name": "description",
+              "value": "Processes other than known security tooling reading LSASS memory. Synthetic fixture query."
+            }
+          ],
+          "version": 2
+        }
+      },
+      {
+        "id": "/subscriptions/00000000-0000-0000-0000-00000000f1c5/resourceGroups/rg-fixture-soc/providers/Microsoft.OperationalInsights/workspaces/law-fixture-sentinel/savedSearches/fixture-saved-weekly-report",
+        "name": "fixture-saved-weekly-report",
+        "type": "Microsoft.OperationalInsights/savedSearches",
+        "properties": {
+          "category": "Reports",
+          "displayName": "Weekly firewall volume (report, not a hunt)",
+          "query": "CommonSecurityLog | summarize count() by DeviceVendor",
+          "tags": [
+            {
+              "name": "tactics",
+              "value": ""
+            },
+            {
+              "name": "techniques",
+              "value": ""
+            },
+            {
+              "name": "description",
+              "value": "Not a hunting query; filtered out by the default category."
+            }
+          ],
+          "version": 2
+        }
+      }
+    ]
+  }
+}

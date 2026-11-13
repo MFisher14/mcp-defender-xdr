@@ -72,6 +72,33 @@ class _TenantField(BaseModel):
         return _validate_tenant_value(value)
 
 
+def validate_kql(value: str) -> str:
+    """Strip control characters and reject empty or state-changing KQL.
+
+    Shared by every tool that accepts KQL, and applied to saved queries read
+    back from upstream before they are executed.
+    """
+    if len(value) > MAX_KQL_LENGTH:
+        raise ValueError(f"KQL query exceeds {MAX_KQL_LENGTH} characters")
+    cleaned = _strip_control_chars(value)
+    if not cleaned.strip():
+        raise ValueError("KQL query must contain non-whitespace characters")
+    lowered = cleaned.lower()
+    for forbidden in _KQL_FORBIDDEN_SUBSTRINGS:
+        if forbidden in lowered:
+            raise ValueError(
+                f"KQL query contains a disallowed control verb ({forbidden!r}); "
+                "only read-only queries are supported."
+            )
+    return cleaned
+
+
+def _validate_timespan(value: str) -> str:
+    if not ISO8601_DURATION_PATTERN.match(value):
+        raise ValueError("timespan must be an ISO 8601 duration (e.g., 'P1D', 'PT4H', 'P7D')")
+    return value
+
+
 class AdvancedHuntingInput(_TenantField):
     query: Annotated[str, Field(min_length=1, max_length=MAX_KQL_LENGTH)]
     timespan: Annotated[str, Field(min_length=2, max_length=32)] = DEFAULT_TIMESPAN
@@ -79,24 +106,61 @@ class AdvancedHuntingInput(_TenantField):
     @field_validator("query")
     @classmethod
     def _validate_query(cls, value: str) -> str:
-        cleaned = _strip_control_chars(value)
-        if not cleaned.strip():
-            raise ValueError("KQL query must contain non-whitespace characters")
-        lowered = cleaned.lower()
-        for forbidden in _KQL_FORBIDDEN_SUBSTRINGS:
-            if forbidden in lowered:
-                raise ValueError(
-                    f"KQL query contains a disallowed control verb ({forbidden!r}); "
-                    "only read-only Advanced Hunting queries are supported."
-                )
-        return cleaned
+        return validate_kql(value)
 
     @field_validator("timespan")
     @classmethod
-    def _validate_timespan(cls, value: str) -> str:
-        if not ISO8601_DURATION_PATTERN.match(value):
-            raise ValueError("timespan must be an ISO 8601 duration (e.g., 'P1D', 'PT4H', 'P7D')")
+    def _check_timespan(cls, value: str) -> str:
+        return _validate_timespan(value)
+
+
+SAVED_QUERY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.()-]{1,128}$")
+SENTINEL_MAX_ROWS = 1000
+
+
+class SentinelQueryInput(_TenantField):
+    query: Annotated[str, Field(min_length=1, max_length=MAX_KQL_LENGTH)] | None = None
+    saved_query_id: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    timespan: Annotated[str, Field(min_length=2, max_length=32)] = DEFAULT_TIMESPAN
+    limit: Annotated[int, Field(ge=1, le=SENTINEL_MAX_ROWS)] = 200
+
+    @field_validator("query")
+    @classmethod
+    def _validate_query(cls, value: str | None) -> str | None:
+        return validate_kql(value) if value is not None else None
+
+    @field_validator("saved_query_id")
+    @classmethod
+    def _validate_saved_id(cls, value: str | None) -> str | None:
+        if value is not None and not SAVED_QUERY_ID_PATTERN.match(value):
+            raise ValueError("saved_query_id must be a saved search name (alphanumerics, ._-())")
         return value
+
+    @field_validator("timespan")
+    @classmethod
+    def _check_timespan(cls, value: str) -> str:
+        return _validate_timespan(value)
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> Self:
+        if (self.query is None) == (self.saved_query_id is None):
+            raise ValueError("provide exactly one of query or saved_query_id")
+        return self
+
+
+class SentinelHuntingQueriesInput(_TenantField):
+    search: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    tactic: Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z ]+$")] | None = (
+        None
+    )
+    category: Annotated[str, Field(min_length=1, max_length=100)] = "Hunting Queries"
+    include_query: bool = True
+    limit: Annotated[int, Field(ge=1, le=200)] = 50
+
+    @field_validator("search", "category")
+    @classmethod
+    def _clean(cls, value: str | None) -> str | None:
+        return _strip_control_chars(value) if value is not None else None
 
 
 class IncidentInput(_TenantField):

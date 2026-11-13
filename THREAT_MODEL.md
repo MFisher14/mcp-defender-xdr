@@ -180,10 +180,20 @@ permissions, silently expanding the server's blast radius.
    deliberately does **not** call `GET /api/indicators` or the
    file/domain related-alert endpoints, because those require
    `Ti.ReadWrite` and `Alert.ReadWrite.All`, which are write scopes.
-2. **No wildcard scope.** OAuth scope is the static
+   The Sentinel tools (#10) add exactly two read calls:
+   `POST api.loganalytics.io/v1/workspaces/{id}/query` and
+   `GET management.azure.com{workspace}/savedSearches`. They need only the
+   **Log Analytics Reader** and **Reader** roles on that one workspace;
+   neither role can modify anything.
+2. **No wildcard scope.** Every OAuth scope is a static `.default`
+   scope for a fixed audience, by default
    `https://api.securitycenter.microsoft.com/.default`. The server does
    not request `*.ReadWrite.*` or `*.All` scopes beyond what's listed in
-   the README.
+   the README. Token audiences are pinned in `auth.ALLOWED_SCOPES`:
+   the Defender API, the Log Analytics query API
+   (`https://api.loganalytics.io/.default`), and ARM
+   (`https://management.azure.com/.default`). `TokenManager.get_token`
+   refuses any other scope.
 3. **Documented permission list.** The README publishes the exact
    permission names so an admin reviewing consent can decline anything
    broader.
@@ -249,6 +259,19 @@ effectively controls a tool call.
    the basis of a previous tool's output to call another tool. All tool
    calls originate from the client. This contains the blast radius of
    any single hijacked output.
+4. **Sentinel raises the stakes** *(re-evaluated for #10)*. A Sentinel
+   workspace usually holds custom tables (`*_CL`, syslog, CEF, HTTP Data
+   Collector) fed by sources that **anyone on the network can write to**,
+   with no Microsoft detection logic in between. That content is less
+   trusted than Defender's, so every `query_sentinel` and
+   `list_sentinel_hunting_queries` result carries an explicit
+   `untrusted_content_notice`, and both tool descriptions say so.
+5. **Saved queries are upstream content too.** Hunting-query names,
+   descriptions, and KQL are authored by anyone with write access to the
+   workspace. Running one by `saved_query_id` passes its KQL through the
+   same `validate_kql` checks as caller-supplied KQL (length cap,
+   control-character stripping, forbidden control verbs) before it is
+   sent, and the token used for it is read-only anyway.
 
 **Residual risk.** A model that doesn't honor "treat as data" guidance
 can still be steered by a sufficiently clever payload. This is an

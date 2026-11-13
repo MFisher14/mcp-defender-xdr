@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .auth import SentinelWorkspace
 from .errors import ConfigError, NotFoundError, UpstreamError
 from .kql import TAG_RE
 
@@ -58,6 +59,9 @@ _INCIDENTS_FILE = "incidents.json"
 _ALERTS_FILE = "alerts.json"
 #: Optional: recorded results for the server-built investigation queries.
 _INVESTIGATIONS_FILE = "investigations.json"
+#: Optional: a Sentinel workspace per fixture tenant, a query result, saved searches.
+_SENTINEL_FILE = "sentinel.json"
+_LA_QUERY_RE = re.compile(r"^/v1/workspaces/(?P<ws>[0-9a-f-]{36})/query$")
 
 _PACKAGED_FIXTURE_DIR = "fixture_data"
 
@@ -156,6 +160,9 @@ class FixtureStore:
     hunting_views: dict[str, dict[str, Any]] = field(default_factory=dict)
     tenants: tuple[str, ...] = FIXTURE_TENANTS
     default_tenant_key: str = FIXTURE_DEFAULT_TENANT
+    #: Recorded Sentinel payloads; see ``sentinel.json``. Empty when absent.
+    sentinel: dict[str, Any] = field(default_factory=dict)
+    sentinel_workspaces: dict[str, SentinelWorkspace] = field(default_factory=dict)
 
     @classmethod
     def load(cls, directory: Path | None = None) -> FixtureStore:
@@ -163,12 +170,26 @@ class FixtureStore:
         incidents = _load_json_object(source / _INCIDENTS_FILE)
         if not incidents:
             raise ConfigError(f"Incident fixtures are empty: {source / _INCIDENTS_FILE}")
+        sentinel_path = source / _SENTINEL_FILE
+        sentinel = _load_json_object(sentinel_path) if sentinel_path.is_file() else {}
+        workspaces_raw = sentinel.get("workspaces", {})
+        if not isinstance(workspaces_raw, dict):
+            raise ConfigError(f"'workspaces' must be an object: {sentinel_path}")
+        workspaces: dict[str, SentinelWorkspace] = {}
+        for tenant, ws in workspaces_raw.items():
+            if not isinstance(ws, dict):
+                raise ConfigError(f"Sentinel workspace for '{tenant}' must be an object")
+            workspaces[str(tenant)] = SentinelWorkspace.from_config(
+                ws.get("workspace_id"), ws.get("resource_id"), where=f"fixture '{tenant}'"
+            )
         return cls(
             advanced_hunting=_load_json_object(source / _ADVANCED_HUNTING_FILE),
             incidents=incidents,
             alerts=_load_json_object(source / _ALERTS_FILE),
             source_dir=source,
             hunting_views=_load_hunting_views(source / _INVESTIGATIONS_FILE),
+            sentinel=sentinel,
+            sentinel_workspaces=workspaces,
         )
 
     def list_tenants(self) -> list[str]:
@@ -209,9 +230,15 @@ class FixtureClient:
             return self._incident(path[len(_INCIDENT_PATH_PREFIX) :])
         if path == _ALERTS_PATH:
             return self._alerts(params)
+        if path.endswith("/savedSearches") and isinstance(
+            self._store.sentinel.get("saved_searches"), dict
+        ):
+            return dict(self._store.sentinel["saved_searches"])
         raise UpstreamError(f"No fixture recorded for GET {path}")
 
     async def post(self, path: str, *, json: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        if _LA_QUERY_RE.match(path) and isinstance(self._store.sentinel.get("query_result"), dict):
+            return dict(self._store.sentinel["query_result"])
         if path != _ADVANCED_HUNTING_PATH:
             raise UpstreamError(f"No fixture recorded for POST {path}")
         query = (json or {}).get("Query")

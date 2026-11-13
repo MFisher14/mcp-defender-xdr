@@ -111,8 +111,8 @@ def _build_context_factory(token_mgr: TokenManager):
         ctx = ToolContext(token_mgr, http_client=http_client, max_fan_out=max_fan_out)
         original = ctx.client_for
 
-        def patched_client_for(tenant_key: str):
-            client = original(tenant_key)
+        def patched_client_for(tenant_key: str, api: str = "defender"):
+            client = original(tenant_key, api)
             # client_for is typed to the DefenderApi protocol; only the live
             # client has a backoff sleep to stub out.
             if isinstance(client, DefenderClient):

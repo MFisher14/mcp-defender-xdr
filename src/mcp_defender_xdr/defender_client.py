@@ -51,6 +51,9 @@ class DefenderApi(Protocol):
     identical in both modes.
     """
 
+    @property
+    def tenant_key(self) -> str: ...
+
     async def get(
         self, path: str, *, params: Mapping[str, Any] | None = None
     ) -> dict[str, Any]: ...
@@ -71,8 +74,14 @@ class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):
         max_retries: int = _MAX_RETRIES,
         tenant_key: str = "default",
         sleep: Callable[[float], Awaitable[None]] | None = None,
+        scope: str | None = None,
+        api_name: str = "Defender API",
     ) -> None:
         self._token_manager = token_manager
+        # None = the token manager's default (the Defender API). The same client
+        # serves Log Analytics and ARM with their own pinned scopes.
+        self._scope = scope
+        self._api_name = api_name
         self._tenant_key = tenant_key
         self._base_url = (base_url or _default_base_url()).rstrip("/")
         self._timeout = timeout
@@ -83,6 +92,10 @@ class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):
             timeout=timeout,
             headers={"User-Agent": _USER_AGENT, "Accept": "application/json"},
         )
+
+    @property
+    def tenant_key(self) -> str:
+        return self._tenant_key
 
     async def __aenter__(self) -> Self:
         return self
@@ -119,7 +132,7 @@ class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):
         retried_after_401 = False
 
         while True:
-            token = self._token_manager.get_token(self._tenant_key)
+            token = self._token_manager.get_token(self._tenant_key, self._scope)
             headers = {"Authorization": f"Bearer {token}"}
             try:
                 response = await self._http.request(
@@ -134,24 +147,24 @@ class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):
                     await self._backoff(attempt, retry_after=None)
                     attempt += 1
                     continue
-                raise UpstreamError("Defender API request timed out") from exc
+                raise UpstreamError(f"{self._api_name} request timed out") from exc
             except httpx.HTTPError as exc:
-                raise UpstreamError("Defender API network error") from exc
+                raise UpstreamError(f"{self._api_name} network error") from exc
 
             if 200 <= response.status_code < 300:
                 return self._parse_json(response)
 
             if response.status_code == 401 and not retried_after_401:
                 retried_after_401 = True
-                self._token_manager.invalidate(self._tenant_key)
+                self._token_manager.invalidate(self._tenant_key, self._scope)
                 continue
 
             if response.status_code == 401:
-                raise AuthError("Defender API rejected the access token")
+                raise AuthError(f"{self._api_name} rejected the access token")
 
             if response.status_code == 404:
                 raise NotFoundError(
-                    "Defender API returned 404 Not Found",
+                    f"{self._api_name} returned 404 Not Found",
                     status_code=response.status_code,
                 )
 
@@ -163,12 +176,12 @@ class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):
 
             if response.status_code == 429:
                 raise RateLimitedError(
-                    "Defender API rate limit exceeded; retries exhausted",
+                    f"{self._api_name} rate limit exceeded; retries exhausted",
                     status_code=response.status_code,
                 )
 
             raise UpstreamError(
-                f"Defender API returned HTTP {response.status_code}",
+                f"{self._api_name} returned HTTP {response.status_code}",
                 status_code=response.status_code,
             )
 
@@ -179,14 +192,13 @@ class DefenderClient(AbstractAsyncContextManager["DefenderClient"]):
             path = "/" + path
         return f"{self._base_url}{path}"
 
-    @staticmethod
-    def _parse_json(response: httpx.Response) -> dict[str, Any]:
+    def _parse_json(self, response: httpx.Response) -> dict[str, Any]:
         try:
             payload = response.json()
         except ValueError as exc:
-            raise UpstreamError("Defender API returned non-JSON response") from exc
+            raise UpstreamError(f"{self._api_name} returned non-JSON response") from exc
         if not isinstance(payload, dict):
-            raise UpstreamError("Defender API returned unexpected JSON shape")
+            raise UpstreamError(f"{self._api_name} returned unexpected JSON shape")
         return payload
 
     async def _backoff(self, attempt: int, *, retry_after: float | None) -> None:

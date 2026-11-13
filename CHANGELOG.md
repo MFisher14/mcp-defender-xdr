@@ -57,6 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credential provider, client configs for each transport,
   `tenants.cloud.example.json`, and `.env.example` stanzas for every new
   variable.
+- Microsoft Sentinel integration (#10): `query_sentinel` runs read-only KQL
+  against a tenant's Log Analytics workspace, by inline query or by
+  `saved_query_id`, and `list_sentinel_hunting_queries` surfaces the
+  workspace's saved hunting queries with their tactics and techniques.
+  Configured per tenant with `sentinel_workspace_id` and optional
+  `sentinel_workspace_resource_id`, or with the matching
+  `MCP_DEFENDER_XDR_SENTINEL_*` variables. Needs the Log Analytics Reader
+  and Reader roles on the workspace.
+- `TokenManager.get_token(scope=...)`: tokens for the Log Analytics and ARM
+  audiences, pinned in `auth.ALLOWED_SCOPES`; any other scope is refused.
+- Offline fixtures for Sentinel (`examples/fixtures/sentinel.json`).
 
 ### Changed
 
@@ -66,6 +77,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transitively through `msal`).
 - `AzureCredentials.cert_path` is optional; exactly one of `cert_path` or
   the new `certificate` must be set.
+- Upstream error messages name the API that failed (Defender API, Log
+  Analytics API, Azure Resource Manager).
+- KQL validation is factored into `validation.validate_kql` and shared by
+  every tool that runs KQL.
+
 ## [0.2.0] - 2026-09-04
 
 Supersedes the 0.1.1 version bump, which was developed but never tagged or

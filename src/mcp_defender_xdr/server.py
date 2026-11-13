@@ -41,6 +41,7 @@ from .tools import (
     device_timeline,
     incidents,
     investigate_user,
+    sentinel,
     threat_intelligence,
 )
 
@@ -62,18 +63,38 @@ _TOOL_MODULES = (
 )
 
 
+#: (name, description, input schema, handler) for every tool. Single-tool
+#: modules contribute themselves; sentinel.py defines two tools.
+_TOOLS: list[tuple[str, str, dict[str, Any], ToolHandler]] = [
+    (m.TOOL_NAME, m.TOOL_DESCRIPTION, m.INPUT_SCHEMA, m.run) for m in _TOOL_MODULES
+] + [
+    (
+        sentinel.QUERY_TOOL_NAME,
+        sentinel.QUERY_TOOL_DESCRIPTION,
+        sentinel.QUERY_INPUT_SCHEMA,
+        sentinel.run_query,
+    ),
+    (
+        sentinel.LIST_TOOL_NAME,
+        sentinel.LIST_TOOL_DESCRIPTION,
+        sentinel.LIST_INPUT_SCHEMA,
+        sentinel.run_list,
+    ),
+]
+
+
 def _tool_definitions() -> list[mcp_types.Tool]:
     return [
         mcp_types.Tool(
-            name=module.TOOL_NAME,
-            description=module.TOOL_DESCRIPTION,
-            inputSchema=module.INPUT_SCHEMA,
+            name=name,
+            description=description,
+            inputSchema=schema,
         )
-        for module in _TOOL_MODULES
+        for name, description, schema, _ in _TOOLS
     ]
 
 
-_HANDLERS: dict[str, ToolHandler] = {module.TOOL_NAME: module.run for module in _TOOL_MODULES}
+_HANDLERS: dict[str, ToolHandler] = {name: run for name, _, _, run in _TOOLS}
 
 
 def _error_result(code: ErrorCode, message: str) -> mcp_types.CallToolResult:
