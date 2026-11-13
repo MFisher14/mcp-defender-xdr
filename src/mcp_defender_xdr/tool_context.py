@@ -8,11 +8,30 @@ from typing import Self
 
 import httpx
 
-from .auth import TokenManager
+from .auth import (
+    ARM_RESOURCE,
+    ARM_SCOPE,
+    LOG_ANALYTICS_RESOURCE,
+    LOG_ANALYTICS_SCOPE,
+    SentinelWorkspace,
+    TokenManager,
+)
 from .defender_client import DefenderApi, DefenderClient
 from .fixtures import FixtureClient, FixtureStore
 
 _USER_AGENT = "mcp-defender-xdr/0.1 (+https://github.com/MFisher14/mcp-defender-xdr)"
+
+
+API_DEFENDER = "defender"
+API_LOG_ANALYTICS = "log_analytics"
+API_ARM = "arm"
+
+# api -> (base URL or None for the DEFENDER_API_BASE default, token scope, name)
+_APIS: dict[str, tuple[str | None, str | None, str]] = {
+    API_DEFENDER: (None, None, "Defender API"),
+    API_LOG_ANALYTICS: (LOG_ANALYTICS_RESOURCE, LOG_ANALYTICS_SCOPE, "Log Analytics API"),
+    API_ARM: (ARM_RESOURCE, ARM_SCOPE, "Azure Resource Manager"),
+}
 
 
 class ToolContext(AbstractAsyncContextManager["ToolContext"]):
@@ -73,14 +92,26 @@ class ToolContext(AbstractAsyncContextManager["ToolContext"]):
             return self._fixtures.list_tenants()
         return self.token_manager.list_tenants()
 
-    def client_for(self, tenant_key: str) -> DefenderApi:
+    def sentinel_workspace(self, tenant_key: str) -> SentinelWorkspace | None:
+        if self._fixtures is not None:
+            return self._fixtures.sentinel_workspaces.get(tenant_key)
+        return self.token_manager.sentinel_workspaces().get(tenant_key)
+
+    def client_for(self, tenant_key: str, api: str = API_DEFENDER) -> DefenderApi:
+        """A client for one tenant and one upstream API, with that API's pinned scope."""
+        if api not in _APIS:
+            raise ValueError(f"unknown upstream API: {api}")
         if self._fixtures is not None:
             return FixtureClient(self._fixtures, tenant_key)
         assert self._http is not None  # noqa: S101 - guaranteed by __init__
+        base_url, scope, name = _APIS[api]
         return DefenderClient(
             self.token_manager,
             http_client=self._http,
             tenant_key=tenant_key,
+            base_url=base_url,
+            scope=scope,
+            api_name=name,
         )
 
     async def __aenter__(self) -> Self:

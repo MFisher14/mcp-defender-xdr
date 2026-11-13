@@ -10,7 +10,7 @@ from ..audit import audit, audit_error, audit_warning
 from ..defender_client import DefenderApi
 from ..errors import DefenderError, ErrorCode, InvalidInputError
 from ..fixtures import FIXTURE_AUDIT_EVENT, SYNTHETIC_NOTICE, mark_result
-from ..tool_context import ToolContext
+from ..tool_context import API_DEFENDER, ToolContext
 from ..validation import FAN_OUT_TENANT
 
 TenantCall = Callable[[DefenderApi], Awaitable[dict[str, Any]]]
@@ -35,6 +35,8 @@ async def dispatch(
     tool_name: str,
     targets: list[str],
     call: TenantCall,
+    *,
+    api: str = API_DEFENDER,
 ) -> dict[str, Any]:
     if ctx.fixture_mode:
         # Loud, WARNING-level, on every single tool call — never a startup-only
@@ -48,7 +50,7 @@ async def dispatch(
         )
 
     if len(targets) == 1:
-        client = ctx.client_for(targets[0])
+        client = ctx.client_for(targets[0], api)
         single = await call(client)
         return mark_result(single) if ctx.fixture_mode else single
 
@@ -57,7 +59,7 @@ async def dispatch(
     async def _one(tenant_key: str) -> dict[str, Any]:
         async with semaphore:
             try:
-                client = ctx.client_for(tenant_key)
+                client = ctx.client_for(tenant_key, api)
                 payload = await call(client)
             except DefenderError as exc:
                 audit_error(

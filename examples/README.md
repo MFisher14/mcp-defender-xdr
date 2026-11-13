@@ -104,6 +104,7 @@ Three independent signals, on every call:
 | `fixtures/advanced_hunting.json` | `POST /api/advancedqueries/run` — 5 rows, 8-column schema      |
 | `fixtures/incidents.json`        | `GET /api/incidents/{id}` — `INC-4471`, `INC-8892`             |
 | `fixtures/alerts.json`           | `GET /api/alerts` — 6 alerts across all four severities        |
+| `fixtures/sentinel.json`         | Sentinel workspace (contoso only), a firewall query result, 4 saved searches |
 | `prompts.md`                     | Demo prompts covering all three tools, fan-out, and errors     |
 
 The files hold **raw upstream response shapes**, not finished tool output. Each

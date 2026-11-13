@@ -22,12 +22,56 @@ from .errors import AuthError
 
 DEFAULT_DEFENDER_RESOURCE = "https://api.securitycenter.microsoft.com"
 DEFAULT_DEFENDER_SCOPE = f"{DEFAULT_DEFENDER_RESOURCE}/.default"
+#: Microsoft Sentinel queries go to the Log Analytics data plane...
+LOG_ANALYTICS_RESOURCE = "https://api.loganalytics.io"
+LOG_ANALYTICS_SCOPE = f"{LOG_ANALYTICS_RESOURCE}/.default"
+#: ...and saved hunting queries are read from Azure Resource Manager.
+ARM_RESOURCE = "https://management.azure.com"
+ARM_SCOPE = f"{ARM_RESOURCE}/.default"
+#: Every token audience this server may request. Pinned, so a code path cannot
+#: quietly ask for a token to anything else (THREAT_MODEL.md, T3).
+ALLOWED_SCOPES = frozenset({DEFAULT_DEFENDER_SCOPE, LOG_ANALYTICS_SCOPE, ARM_SCOPE})
 
 DEFAULT_TENANT_KEY = "default"
 
 _REFRESH_LEEWAY_SECONDS = 60
 
 _TENANT_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+_GUID_RE = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
+_WORKSPACE_RESOURCE_ID_RE = re.compile(
+    r"^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[A-Za-z0-9._()-]{1,90}"
+    r"/providers/Microsoft\.OperationalInsights/workspaces/[A-Za-z0-9-]{4,63}$",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class SentinelWorkspace:
+    """A tenant's Microsoft Sentinel (Log Analytics) workspace."""
+
+    #: Workspace (customer) ID, a GUID: used for KQL queries.
+    workspace_id: str
+    #: ARM resource ID: needed only to list saved hunting queries.
+    resource_id: str | None = None
+
+    @classmethod
+    def from_config(cls, workspace_id: Any, resource_id: Any, *, where: str) -> SentinelWorkspace:
+        if not isinstance(workspace_id, str) or not _GUID_RE.match(workspace_id.strip()):
+            raise AuthError(f"{where}: sentinel_workspace_id must be a workspace GUID")
+        if resource_id is not None and (
+            not isinstance(resource_id, str)
+            or not _WORKSPACE_RESOURCE_ID_RE.match(resource_id.strip())
+        ):
+            raise AuthError(
+                f"{where}: sentinel_workspace_resource_id must look like /subscriptions/<id>"
+                "/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>"
+            )
+        return cls(
+            workspace_id=workspace_id.strip().lower(),
+            resource_id=resource_id.strip() if isinstance(resource_id, str) else None,
+        )
 
 
 @dataclass(frozen=True)
@@ -65,6 +109,10 @@ class CredentialProvider(ABC):
     def default_tenant_key(self) -> str:
         return DEFAULT_TENANT_KEY
 
+    def sentinel_workspaces(self) -> dict[str, SentinelWorkspace]:
+        """Sentinel workspaces keyed by tenant key; tenants without one are absent."""
+        return {}
+
 
 def _require_pfx_readable(path: str, *, source: str) -> None:
     pfx = Path(path)
@@ -92,6 +140,18 @@ class EnvCredentialProvider(CredentialProvider):
         cert_path = source["AZURE_CERT_PATH"].strip()
         _require_pfx_readable(cert_path, source="AZURE_CERT_PATH")
         passphrase = source.get(self.PASSPHRASE_VAR) or None
+        workspace_id = source.get("MCP_DEFENDER_XDR_SENTINEL_WORKSPACE_ID")
+        resource_id = source.get("MCP_DEFENDER_XDR_SENTINEL_WORKSPACE_RESOURCE_ID") or None
+        if resource_id and not workspace_id:
+            raise AuthError(
+                "MCP_DEFENDER_XDR_SENTINEL_WORKSPACE_RESOURCE_ID requires "
+                "MCP_DEFENDER_XDR_SENTINEL_WORKSPACE_ID"
+            )
+        self._sentinel = (
+            SentinelWorkspace.from_config(workspace_id, resource_id, where="environment")
+            if workspace_id
+            else None
+        )
         self._credentials = AzureCredentials(
             tenant_id=source["AZURE_TENANT_ID"].strip(),
             client_id=source["AZURE_CLIENT_ID"].strip(),
@@ -103,6 +163,9 @@ class EnvCredentialProvider(CredentialProvider):
         if tenant_key != DEFAULT_TENANT_KEY:
             raise AuthError("Unknown tenant")
         return self._credentials
+
+    def sentinel_workspaces(self) -> dict[str, SentinelWorkspace]:
+        return {DEFAULT_TENANT_KEY: self._sentinel} if self._sentinel else {}
 
 
 class JsonFileCredentialProvider(CredentialProvider):
@@ -124,6 +187,16 @@ class JsonFileCredentialProvider(CredentialProvider):
             raise AuthError(f"Tenants config is not valid JSON: {self._path}") from exc
 
         self._default_tenant, self._tenants = self._parse(data, env_source)
+        self._sentinel = {
+            key: SentinelWorkspace.from_config(
+                entry.get("sentinel_workspace_id"),
+                entry.get("sentinel_workspace_resource_id"),
+                where=f"Tenant '{key}'",
+            )
+            for key, entry in data["tenants"].items()
+            if entry.get("sentinel_workspace_id") is not None
+            or entry.get("sentinel_workspace_resource_id") is not None
+        }
 
     @staticmethod
     def _check_permissions(path: Path) -> None:
@@ -222,6 +295,9 @@ class JsonFileCredentialProvider(CredentialProvider):
     def default_tenant_key(self) -> str:
         return self._default_tenant
 
+    def sentinel_workspaces(self) -> dict[str, SentinelWorkspace]:
+        return dict(self._sentinel)
+
 
 class _MsalAppFactory(Protocol):
     def __call__(
@@ -292,22 +368,33 @@ class TokenManager:
     def list_tenants(self) -> list[str]:
         return self._credential_provider.list_tenants()
 
-    def get_token(self, tenant_key: str = DEFAULT_TENANT_KEY) -> str:
-        cache_key = (tenant_key, self._scope)
+    def sentinel_workspaces(self) -> dict[str, SentinelWorkspace]:
+        return self._credential_provider.sentinel_workspaces()
+
+    def get_token(self, tenant_key: str = DEFAULT_TENANT_KEY, scope: str | None = None) -> str:
+        """Return a cached or fresh token for ``tenant_key``.
+
+        ``scope`` defaults to the Defender API. Other audiences (Log Analytics,
+        ARM) must be in :data:`ALLOWED_SCOPES`.
+        """
+        resolved_scope = scope or self._scope
+        if resolved_scope not in ALLOWED_SCOPES and resolved_scope != self._scope:
+            raise AuthError("Requested token scope is not permitted")
+        cache_key = (tenant_key, resolved_scope)
         now = self._time_source()
         with self._lock:
             cached = self._cache.get(cache_key)
             if cached is not None and cached.is_fresh(now):
                 return cached.access_token
-            new_token = self._acquire(tenant_key)
+            new_token = self._acquire(tenant_key, resolved_scope)
             self._cache[cache_key] = new_token
             return new_token.access_token
 
-    def invalidate(self, tenant_key: str = DEFAULT_TENANT_KEY) -> None:
+    def invalidate(self, tenant_key: str = DEFAULT_TENANT_KEY, scope: str | None = None) -> None:
         with self._lock:
-            self._cache.pop((tenant_key, self._scope), None)
+            self._cache.pop((tenant_key, scope or self._scope), None)
 
-    def _acquire(self, tenant_key: str) -> _CachedToken:
+    def _acquire(self, tenant_key: str, scope: str) -> _CachedToken:
         credentials = self._credential_provider.get_credentials(tenant_key)
         app = self._apps.get(tenant_key)
         if app is None:
@@ -318,7 +405,7 @@ class TokenManager:
             )
             self._apps[tenant_key] = app
 
-        result = app.acquire_token_for_client(scopes=[self._scope])
+        result = app.acquire_token_for_client(scopes=[scope])
 
         if not isinstance(result, dict) or "access_token" not in result:
             error_code = result.get("error") if isinstance(result, dict) else "unknown_error"

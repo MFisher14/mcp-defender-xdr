@@ -24,7 +24,7 @@ from .fixtures import (
     fixture_mode_requested,
 )
 from .tool_context import ToolContext
-from .tools import advanced_hunting, alerts, incidents
+from .tools import advanced_hunting, alerts, incidents, sentinel
 
 ServerName = "mcp-defender-xdr"
 
@@ -50,6 +50,16 @@ def _tool_definitions() -> list[mcp_types.Tool]:
             description=alerts.TOOL_DESCRIPTION,
             inputSchema=alerts.INPUT_SCHEMA,
         ),
+        mcp_types.Tool(
+            name=sentinel.QUERY_TOOL_NAME,
+            description=sentinel.QUERY_TOOL_DESCRIPTION,
+            inputSchema=sentinel.QUERY_INPUT_SCHEMA,
+        ),
+        mcp_types.Tool(
+            name=sentinel.LIST_TOOL_NAME,
+            description=sentinel.LIST_TOOL_DESCRIPTION,
+            inputSchema=sentinel.LIST_INPUT_SCHEMA,
+        ),
     ]
 
 
@@ -57,6 +67,8 @@ _HANDLERS: dict[str, ToolHandler] = {
     advanced_hunting.TOOL_NAME: advanced_hunting.run,
     incidents.TOOL_NAME: incidents.run,
     alerts.TOOL_NAME: alerts.run,
+    sentinel.QUERY_TOOL_NAME: sentinel.run_query,
+    sentinel.LIST_TOOL_NAME: sentinel.run_list,
 }
 
 

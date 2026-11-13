@@ -69,7 +69,23 @@ structure and the bounded concurrency, not differing data.
 
 > Run the same Advanced Hunting query across all tenants and compare.
 
-## 5. Confirm the guardrails still apply
+## 5. Microsoft Sentinel
+
+> What hunting queries do we have saved in Sentinel? Run the beaconing one.
+
+`list_sentinel_hunting_queries` returns three hunting queries (beaconing,
+Run-key persistence, LSASS access); the fourth saved search is a report
+and is filtered out. `query_sentinel` with `saved_query_id` returns four
+firewall rows, two of them to `198.51.100.7`, the same C2 address as in
+incident INC-4471.
+
+> Run that Sentinel query across every tenant.
+
+`contoso-fixture` answers. `fabrikam-fixture` has no workspace
+configured, so its slot is an `invalid_input` error. That's per-tenant
+isolation working.
+
+## 6. Confirm the guardrails still apply
 
 Fixture mode replaces the transport, not the validation. These are rejected
 before anything is served:
